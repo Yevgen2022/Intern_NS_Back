@@ -4,37 +4,37 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import configPlugin from "./config";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
 
+
 export type AppOptions = Partial<FastifyServerOptions>;
 
 async function buildApp(options: AppOptions = {}) {
-	const fastify = Fastify({ logger: true });
-	await fastify.register(configPlugin);
+
+	const fastify = Fastify({ logger: true });  //create server Turns on the built-in logger.
+	await fastify.register(configPlugin);                                           //Connects your config plugin
 
 	try {
-		fastify.decorate("pluginLoaded", (pluginName: string) => {
-			fastify.log.info(`✅ Plugin loaded: ${pluginName}`);
+		fastify.decorate("pluginLoaded", (pluginName: string) => {   //Adds a utility for logging downloaded plugins
+			fastify.log.info(`Plugin loaded: ${pluginName}`);
 		});
 
 		fastify.log.info("Starting to load plugins");
-		await fastify.register(AutoLoad, {
+		await fastify.register(AutoLoad, {                      //Autoloads plugins from the plugins/ folder
 			dir: join(__dirname, "plugins"),
 			options: options,
 			ignorePattern: /^((?!plugin).)*$/,
 		});
 
-		fastify.log.info("✅ Plugins loaded successfully");
+		fastify.log.info("Plugins loaded successfully");
 	} catch (error) {
 		fastify.log.error("Error in autoload:", error);
 		throw error;
 	}
 
-	// fastify.get("/", async (request, reply) => {
-	// 	return { hello: "world" };
-	// });
 
-	fastify.get("/", async () => {
-		return { hello: "world" };
-	});
+    fastify.get("/", async () => {
+	return fastify.prisma.hero.findFirst();
+})
+
 
 	fastify.register(getFeedDataRoutes);
 

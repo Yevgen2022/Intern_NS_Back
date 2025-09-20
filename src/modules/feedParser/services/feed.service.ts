@@ -1,11 +1,13 @@
-// modules/feed/service.ts
+// // modules/feed/service.ts
+
 import Parser from "rss-parser";
+import  prisma  from "../../../lib/prisma";
 
 export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/rss.xml";
 
 export type NormalizedFeedItem = {
-    title: string | undefined;
-    link: string | undefined;
+    title?: string;
+    link?: string;
     isoDate?: string;
     pubDate?: string;
     description?: string;
@@ -13,48 +15,52 @@ export type NormalizedFeedItem = {
 
 export type NormalizedFeed = {
     sourceUrl: string;
-    title?: string;
-    lastBuildDate?: string;
     items: NormalizedFeedItem[];
 };
 
 class FeedService {
-    private parser: Parser;
+    private parser = new Parser();
 
-    constructor() {
-        this.parser = new Parser();
+    private normalize(feed: any, sourceUrl: string): NormalizedFeed {
+        const items: NormalizedFeedItem[] = (feed.items || []).map((it: any) => ({
+            title: it.title,
+            link: it.link,
+            isoDate: it.isoDate,
+            pubDate: it.pubDate,
+            description:
+                it.contentSnippet ?? it.content ?? it.summary ?? it.description,
+        }));
+        return { sourceUrl, items };
     }
 
-    /**
-     * Parses an RSS/Atom feed by URL and returns normalized data.
-     */
     async parseFeed(url: string): Promise<NormalizedFeed> {
         const sourceUrl = url || DEFAULT_FEED_URL;
+        const feed = await this.parser.parseURL(sourceUrl);
+        return this.normalize(feed, sourceUrl);
+    }
 
-        try {
-            const feed = await this.parser.parseURL(sourceUrl);
+    async getFeed(sourceUrl: string, force = false): Promise<NormalizedFeed> {
 
-            const items: NormalizedFeedItem[] = (feed.items || []).map((it) => ({
-                title: it.title,
-                link: it.link,
-                // rss-parser returns either isoDate or pubDate (values ​​can be undefined)
-                isoDate: (it as any).isoDate,
-                pubDate: it.pubDate,
-                description: it.contentSnippet ?? it.content ?? it.summary ?? it.description,
-            }));
-
-            return {
-                sourceUrl,
-                title: feed.title,
-                lastBuildDate: (feed as any).lastBuildDate,
-                items,
-            };
-        } catch (err: any) {
-            // кlet's move on with a friendly message - the controller will turn this into a 5xx
-            const msg = err?.message ?? "Unknown feed parsing error";
-            throw new Error(`Feed parsing failed: ${msg}`);
+        // 1) if not force — try from cache
+        if (!force) {
+            const cached = await prisma.feedCache.findUnique({
+                where: { sourceUrl },
+            });
+            if (cached) {
+                return { sourceUrl, items: cached.items as NormalizedFeedItem[] };
+            }
         }
+
+        // 2) pull the feed and save it to the cache
+        const fresh = await this.parseFeed(sourceUrl);
+        await prisma.feedCache.upsert({
+            where: { sourceUrl },
+            create: { sourceUrl, items: fresh.items as any },
+            update: { items: fresh.items as any },
+        });
+        return fresh;
     }
 }
 
 export const feedService = new FeedService();
+

@@ -1,62 +1,17 @@
-// import Parser from "rss-parser";
-// import { feedRepository } from "../repository/feed.repository";
-// import type { NormalizedFeed, NormalizedFeedItem } from "../types/feed.types";
-//
-// export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/rss.xml";
-//
-// class FeedService {
-//     private parser = new Parser();
-//
-//     private normalize(feed: any, sourceUrl: string): NormalizedFeed {
-//         const items: NormalizedFeedItem[] = (feed.items || []).map((it: any) => ({
-//             title: it.title,
-//             link: it.link,
-//             isoDate: it.isoDate,
-//             pubDate: it.pubDate,
-//             description:
-//                 it.contentSnippet ?? it.content ?? it.summary ?? it.description,
-//         }));
-//         return { sourceUrl, items };
-//     }
-//
-//     async parseFeed(url: string): Promise<NormalizedFeed> {
-//         const sourceUrl = url || DEFAULT_FEED_URL;
-//         const feed = await this.parser.parseURL(sourceUrl);
-//         return this.normalize(feed, sourceUrl);
-//     }
-//
-//     async getFeed(sourceUrl: string, force = false): Promise<NormalizedFeed> {
-//         if (!force) {
-//             const cached = await feedRepository.findCacheBySourceUrl(sourceUrl);
-//             if (cached) {
-//                 return { sourceUrl, items: cached.items as NormalizedFeedItem[] };
-//             }
-//         }
-//
-//         const fresh = await this.parseFeed(sourceUrl);
-//         await feedRepository.upsertCache(sourceUrl, fresh.items);
-//         return fresh;
-//     }
-// }
-//
-// export const feedService = new FeedService();
-
-
-
 // modules/feed/services/feed.service.ts
 
 import Parser from "rss-parser";
 import { feedRepository } from "../repository/feed.repository";
 import type { NormalizedFeed, NormalizedFeedItem } from "../types/feed.types";
 
+
+
+
 // Default feed URL used when the caller does not provide a URL
+
 //export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/rss.xml";
 export const DEFAULT_FEED_URL = "https://www.nasa.gov/rss/dyn/breaking_news.rss"
 //export const DEFAULT_FEED_URL = "https://news.ycombinator.com/rss"
-
-
-
-
 
 
 class FeedService {

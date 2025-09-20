@@ -1,0 +1,2 @@
+  "dev": "concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"tsc -w\" \"nodemon\"",
+   "dev": "tsc -w",

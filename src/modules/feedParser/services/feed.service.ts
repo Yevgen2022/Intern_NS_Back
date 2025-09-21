@@ -6,9 +6,9 @@
 
 import type { PrismaClient } from "@prisma/client";
 import Parser from "rss-parser";
+import { DEFAULT_FEED_URL } from "../../../constants/feed";
 import * as feedRepo from "../repository/feed.repository";
 import type { NormalizedFeed, NormalizedFeedItem } from "../types/feed.types";
-import { DEFAULT_FEED_URL } from "../../../constants/feed";
 
 // one parser instance
 const parser = new Parser();

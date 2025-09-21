@@ -9,23 +9,19 @@ generator client {
   }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider = "mongodb"
+  url      = env("MONGODB_URL")
 }
 
-model FeedCache {
-  id        Int      @id @default(autoincrement())
+model Feed {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+
   sourceUrl String   @unique
   items     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@map("feeds")
+
 }
 
-model Hero {
-  id    Int    @id @default(autoincrement())
-  name  String @db.VarChar(10)
-  age   Int?
-  rank  Int?
-
-  @@map("heroes")
-}

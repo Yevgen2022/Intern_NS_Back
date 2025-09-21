@@ -1,9 +1,3 @@
-// // Default feed URL (used when no `url` provided or it's empty/whitespace)
-// //export const DEFAULT_FEED_URL = "https://news.ycombinator.com/rss"
-// //export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/rss.xml";
-// export const DEFAULT_FEED_URL =
-// 	"https://www.nasa.gov/rss/dyn/breaking_news.rss";
-
 import type { PrismaClient } from "@prisma/client";
 import Parser from "rss-parser";
 import { DEFAULT_FEED_URL } from "../../../constants/feed";
@@ -53,7 +47,7 @@ export async function getFeed(
 	url?: string,
 	force = false,
 ): Promise<NormalizedFeed> {
-	const sourceUrl = resolveUrl(url); // без дубля рядка URL
+	const sourceUrl = resolveUrl(url); // no duplicate URL string
 
 	if (!force) {
 		const cached = await feedRepo.findCache(prisma, sourceUrl);
@@ -66,8 +60,11 @@ export async function getFeed(
 	// pull and parse the real feed
 	const parsed = await parseFeed(sourceUrl);
 
+	try {
 	// cache normalized items
 	await feedRepo.upsertCache(prisma, sourceUrl, parsed.items);
-
+	} catch (e) {
+		// log.warn("cache upsert failed", e);
+	}
 	return parsed;
 }

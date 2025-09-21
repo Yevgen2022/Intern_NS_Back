@@ -12,7 +12,8 @@
 		"build": "tsc -p tsconfig.json",
 		"start": "node build/index.js",
 		"prisma:generate": "prisma generate",
-		"prisma:push": "prisma db push"
+		"prisma:push": "prisma db push",
+		"postinstall": "prisma generate"
 	},
 	"author": "",
 	"license": "ISC",

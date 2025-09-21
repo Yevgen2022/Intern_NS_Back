@@ -54,7 +54,6 @@
 // 	return fresh;
 // }
 
-
 import Parser from "rss-parser";
 import { feedRepository } from "../repository/feed.repository";
 import type { NormalizedFeed, NormalizedFeedItem } from "../types/feed.types";

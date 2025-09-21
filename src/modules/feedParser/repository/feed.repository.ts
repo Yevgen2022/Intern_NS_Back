@@ -1,6 +1,6 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../../lib/prisma";
 import type { NormalizedFeedItem } from "../types/feed.types";
-import { Prisma } from "@prisma/client";
 
 export const feedRepository = {
 	findCacheBySourceUrl(sourceUrl: string) {

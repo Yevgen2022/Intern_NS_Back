@@ -1,17 +1,18 @@
-import type { Prisma } from "@prisma/client";
-import prisma from "../../../lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 import type { NormalizedFeedItem } from "../types/feed.types";
 
-export const feedRepository = {
-	findCacheBySourceUrl(sourceUrl: string) {
-		return prisma.feedCache.findUnique({ where: { sourceUrl } });
-	},
+export async function findCache(prisma: PrismaClient, sourceUrl: string) {
+	return prisma.feedCache.findUnique({ where: { sourceUrl } });
+}
 
-	upsertCache(sourceUrl: string, items: NormalizedFeedItem[]) {
-		return prisma.feedCache.upsert({
-			where: { sourceUrl },
-			create: { sourceUrl, items: items as unknown as Prisma.InputJsonValue },
-			update: { items: items as unknown as Prisma.InputJsonValue },
-		});
-	},
-};
+export async function upsertCache(
+	prisma: PrismaClient,
+	sourceUrl: string,
+	items: NormalizedFeedItem[],
+) {
+	return prisma.feedCache.upsert({
+		where: { sourceUrl },
+		create: { sourceUrl, items },
+		update: { items },
+	});
+}

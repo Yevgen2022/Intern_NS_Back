@@ -2,6 +2,7 @@ import { join } from "node:path";
 import AutoLoad from "@fastify/autoload";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import configPlugin from "./config";
+
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
 
 export type AppOptions = Partial<FastifyServerOptions>;
@@ -21,7 +22,7 @@ async function buildApp(options: AppOptions = {}) {
 			//Autoloads plugins from the plugins/ folder
 			dir: join(__dirname, "plugins"),
 			options: options,
-			ignorePattern: /^((?!plugin).)*$/,
+			ignorePattern: /^((?!plugin).)*$/, // load only files whose PATH contains "plugin"
 		});
 
 		fastify.log.info("Plugins loaded successfully");

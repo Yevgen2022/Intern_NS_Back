@@ -1,26 +1,25 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { getFeed } from "../services/feed.service";
 
+type FeedQuery = {
+	url?: string;
+	force?: "1";
+};
+
 export async function getFeedDataController(
-	request: FastifyRequest,
+	request: FastifyRequest<{ Querystring: FeedQuery }>,
 	reply: FastifyReply,
 ) {
-	// read query params
-	const { url, force } = request.query as {
-		url?: string;
-		force?: string | number | boolean;
-	};
+	const { prisma } = request.server;
+	const { url, force } = request.query;
 
-	// normalize force to boolean
-	const forceBool =
-		force === 1 || force === "1" || force === true || force === "true";
+	const forceBool = force === "1";
 
 	try {
-		// service will handle default URL and caching
-		const data = await getFeed(url, forceBool);
+		const data = await getFeed(prisma, url, forceBool);
 		return reply.send(data);
 	} catch (e: unknown) {
 		request.log.error(e, "feed parsing error");
-		return reply.code(502).send({ error: "Feed fetch/parse failed" });
+		return reply.badGateway("Feed fetch/parse failed");
 	}
 }

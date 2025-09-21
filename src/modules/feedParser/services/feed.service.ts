@@ -1,71 +1,21 @@
-// import Parser from "rss-parser";
-// import { feedRepository } from "../repository/feed.repository";
-// import type { NormalizedFeed, NormalizedFeedItem } from "../types/feed.types";
-//
 // // Default feed URL (used when no `url` provided or it's empty/whitespace)
 // //export const DEFAULT_FEED_URL = "https://news.ycombinator.com/rss"
 // //export const DEFAULT_FEED_URL = "https://feeds.bbci.co.uk/news/rss.xml";
 // export const DEFAULT_FEED_URL =
 // 	"https://www.nasa.gov/rss/dyn/breaking_news.rss";
-//
-// // single parser instance
-// const parser = new Parser();
-//
-// // resolve final URL (fallback to default)
-// const resolveUrl = (url?: string) =>
-// 	url && url.trim() ? url : DEFAULT_FEED_URL;
-//
-// // map raw feed into our normalized DTO
-// const normalize = (feed: any, sourceUrl: string): NormalizedFeed => {
-// 	const items: NormalizedFeedItem[] = (feed.items || []).map((it: any) => ({
-// 		title: it.title,
-// 		link: it.link,
-// 		isoDate: it.isoDate,
-// 		pubDate: it.pubDate,
-// 		description:
-// 			it.contentSnippet ?? it.content ?? it.summary ?? it.description,
-// 	}));
-// 	return { sourceUrl, items };
-// };
-//
-// // fetch & parse remote feed (no DB)
-// export async function parseFeed(url?: string): Promise<NormalizedFeed> {
-// 	const sourceUrl = resolveUrl(url);
-// 	const raw = await parser.parseURL(sourceUrl);
-// 	return normalize(raw, sourceUrl);
-// }
-//
-// // main entry for controller (with simple DB cache)
-// export async function getFeed(
-// 	url?: string,
-// 	force = false,
-// ): Promise<NormalizedFeed> {
-// 	const sourceUrl = resolveUrl(url);
-//
-// 	if (!force) {
-// 		const cached = await feedRepository.findCacheBySourceUrl(sourceUrl);
-// 		if (cached) {
-// 			return { sourceUrl, items: cached.items as NormalizedFeedItem[] };
-// 		}
-// 	}
-//
-// 	const fresh = await parseFeed(sourceUrl);
-// 	await feedRepository.upsertCache(sourceUrl, fresh.items);
-// 	return fresh;
-// }
 
+import type { PrismaClient } from "@prisma/client";
 import Parser from "rss-parser";
-import { feedRepository } from "../repository/feed.repository";
+import * as feedRepo from "../repository/feed.repository";
 import type { NormalizedFeed, NormalizedFeedItem } from "../types/feed.types";
 
-// Default feed URL
 export const DEFAULT_FEED_URL =
 	"https://www.nasa.gov/rss/dyn/breaking_news.rss";
 
-// single parser instance
+// one parser instance
 const parser = new Parser();
 
-/** Local types not to use `any` */
+// local types for the parser
 type RssItem = {
 	title?: string;
 	link?: string;
@@ -92,28 +42,34 @@ const normalize = (feed: RssFeed, sourceUrl: string): NormalizedFeed => {
 	return { sourceUrl, items };
 };
 
-// fetch & parse remote feed (no DB)
+//only parsing (without DB)
 export async function parseFeed(url?: string): Promise<NormalizedFeed> {
 	const sourceUrl = resolveUrl(url);
-	const raw = (await parser.parseURL(sourceUrl)) as RssFeed; // типова підказка без any
+	const raw = (await parser.parseURL(sourceUrl)) as RssFeed;
 	return normalize(raw, sourceUrl);
 }
 
-// main entry for controller (with simple DB cache)
+//The main function of the service: takes prisma as the first argument
 export async function getFeed(
+	prisma: PrismaClient,
 	url?: string,
 	force = false,
 ): Promise<NormalizedFeed> {
-	const sourceUrl = resolveUrl(url);
+	const sourceUrl = resolveUrl(url); // без дубля рядка URL
 
 	if (!force) {
-		const cached = await feedRepository.findCacheBySourceUrl(sourceUrl);
+		const cached = await feedRepo.findCache(prisma, sourceUrl);
 		if (cached) {
+			// cached.items вже у форматі NormalizedFeedItem[]
 			return { sourceUrl, items: cached.items as NormalizedFeedItem[] };
 		}
 	}
 
-	const fresh = await parseFeed(sourceUrl);
-	await feedRepository.upsertCache(sourceUrl, fresh.items);
-	return fresh;
+	// pull and parse the real feed
+	const parsed = await parseFeed(sourceUrl);
+
+	// cache normalized items
+	await feedRepo.upsertCache(prisma, sourceUrl, parsed.items);
+
+	return parsed;
 }

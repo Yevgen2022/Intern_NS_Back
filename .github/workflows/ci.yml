@@ -4,10 +4,14 @@ on:
   pull_request:
     branches: [ "main" ]
   push:
-    branches: [ "feature/*" ]
+    branches: [ "feature/**" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  lint:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,8 +27,8 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Run Biome lint
-        run: npm run lint
+      - name: Biome (lint in CI mode)
+        run: npx biome ci "src/**/*.{ts,tsx,js,jsx,json}" --reporter=github
 
       - name: Typecheck
         run: npm run typecheck

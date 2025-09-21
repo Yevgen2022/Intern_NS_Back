@@ -31,10 +31,6 @@ async function buildApp(options: AppOptions = {}) {
 		throw error;
 	}
 
-	fastify.get("/", async () => {
-		return fastify.prisma.hero.findFirst();
-	});
-
 	fastify.register(getFeedDataRoutes);
 
 	return fastify;

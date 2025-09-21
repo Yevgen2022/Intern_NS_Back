@@ -19,7 +19,7 @@ export async function getFeedDataController(
 		// service will handle default URL and caching
 		const data = await getFeed(url, forceBool);
 		return reply.send(data);
-	} catch (e: any) {
+	} catch (e: unknown) {
 		request.log.error(e, "feed parsing error");
 		return reply.code(502).send({ error: "Feed fetch/parse failed" });
 	}

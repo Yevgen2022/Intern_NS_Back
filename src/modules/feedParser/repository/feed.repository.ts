@@ -1,5 +1,6 @@
 import prisma from "../../../lib/prisma";
 import type { NormalizedFeedItem } from "../types/feed.types";
+import { Prisma } from "@prisma/client";
 
 export const feedRepository = {
 	findCacheBySourceUrl(sourceUrl: string) {
@@ -9,8 +10,8 @@ export const feedRepository = {
 	upsertCache(sourceUrl: string, items: NormalizedFeedItem[]) {
 		return prisma.feedCache.upsert({
 			where: { sourceUrl },
-			create: { sourceUrl, items: items as any },
-			update: { items: items as any },
+			create: { sourceUrl, items: items as unknown as Prisma.InputJsonValue },
+			update: { items: items as unknown as Prisma.InputJsonValue },
 		});
 	},
 };

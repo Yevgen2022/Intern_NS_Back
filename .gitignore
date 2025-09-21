@@ -46,3 +46,6 @@ Thumbs.db
 
 # Biome cache
 .biome/
+
+#txt
+*.txt

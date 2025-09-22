@@ -10,10 +10,10 @@ function generateToken(): string {
 }
 
 async function main() {
-    // Хеш для "password123"
+    // Hash for "password123"
     const passwordHash = await hash('password123', 10);
 
-    // 1) Створюємо користувача
+    // 1) We create a user
     const user = await prisma.user.create({
         data: {
             email: 'test@example.com',
@@ -25,7 +25,7 @@ async function main() {
 
     console.log('User created:', user);
 
-    // 2) Створюємо сесію для цього юзера
+    // 2) Create a session for this user
     const token = generateToken();
     const session = await prisma.session.create({
         data: {

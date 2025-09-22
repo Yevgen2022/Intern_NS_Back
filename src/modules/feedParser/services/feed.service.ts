@@ -52,7 +52,7 @@ export async function getFeed(
 	if (!force) {
 		const cached = await feedRepo.findCache(prisma, sourceUrl);
 		if (cached) {
-			// cached.items вже у форматі NormalizedFeedItem[]
+			// cached.items is now in NormalizedFeedItem[] format
 			return { sourceUrl, items: cached.items as NormalizedFeedItem[] };
 		}
 	}
@@ -61,10 +61,10 @@ export async function getFeed(
 	const parsed = await parseFeed(sourceUrl);
 
 	try {
-	// cache normalized items
-	await feedRepo.upsertCache(prisma, sourceUrl, parsed.items);
+		// cache normalized items
+		await feedRepo.upsertCache(prisma, sourceUrl, parsed.items);
 	} catch (e) {
-		// log.warn("cache upsert failed", e);
+		console.error(e);
 	}
 	return parsed;
 }

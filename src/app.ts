@@ -2,7 +2,7 @@ import { join } from "node:path";
 import AutoLoad from "@fastify/autoload";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import configPlugin from "./config";
-
+import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
 
 export type AppOptions = Partial<FastifyServerOptions>;
@@ -32,6 +32,7 @@ async function buildApp(options: AppOptions = {}) {
 	}
 
 	fastify.register(getFeedDataRoutes);
+	fastify.register(authRoutes, { prefix: "/api" });
 
 	return fastify;
 }

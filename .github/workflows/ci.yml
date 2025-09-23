@@ -31,7 +31,8 @@ jobs:
         run: npx prisma generate
 
       - name: Biome (CI mode)
-        run: npx biome ci src --reporter=github
+#        run: npx biome ci src --reporter=github
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck

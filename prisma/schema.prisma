@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  }
+}
 
 datasource db {
   provider = "mongodb"
@@ -14,7 +14,7 @@ datasource db {
 }
 
 model Feed {
-  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  id String @id @default(auto()) @map("_id") @db.ObjectId
 
   sourceUrl String   @unique
   items     Json
@@ -22,14 +22,13 @@ model Feed {
   updatedAt DateTime @updatedAt
 
   @@map("feeds")
-
 }
 
 model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   email        String   @unique
   passwordHash String
-  name         String?        // optional
+  name         String? // optional
   role         String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -39,12 +38,10 @@ model User {
 
 model Session {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  token     String   @unique              // 32B base64url (43–44 symbols without '=')
-  userId    String   @db.ObjectId
+  token     String   @unique // 32B base64url (43–44 symbols without '=')
+  userId    String   @unique @db.ObjectId
   createdAt DateTime @default(now())
   expiresAt DateTime
 
-  @@index([userId])
   @@map("sessions")
 }
-

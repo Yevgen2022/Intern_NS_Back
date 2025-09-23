@@ -18,6 +18,11 @@ export const EnvSchema = {
 			default: "lax",
 		},
 		COOKIE_PATH: { type: "string", default: "/" },
+
+		RATE_LIMIT_GLOBAL: { type: "boolean", default: false },
+		// 0 will be interpreted as "unlimited" in the plugin itself
+		RATE_LIMIT_MAX: { type: "number", default: 0 },
+		RATE_LIMIT_TIME_WINDOW: { type: "string", default: "1 hour" },
 	},
 	required: ["PORT", "HOST"],
 	additionalProperties: false,

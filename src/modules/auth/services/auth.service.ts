@@ -9,10 +9,10 @@ function ttlDate(sec: number) {
 
 export function createAuthService(fastify: FastifyInstance) {
 	const repo = createAuthRepo(fastify);
-	const DEFAULT_TTL = 7200;
-	const SESSION_TTL_SEC = Number(fastify.config.SESSION_TTL_SEC ?? DEFAULT_TTL);
+	const { SESSION_TTL_SEC } = fastify.config;
 
 	return {
+		// POST /register
 		async register(email: string, password: string, name?: string) {
 			const existing = await repo.findUserByEmail(email);
 			if (existing) {
@@ -25,6 +25,7 @@ export function createAuthService(fastify: FastifyInstance) {
 			return { id: user.id, email: user.email, name: user.name ?? null };
 		},
 
+		// POST /login
 		async login(email: string, password: string) {
 			const user = await repo.findUserByEmail(email);
 			if (!user) {
@@ -35,6 +36,9 @@ export function createAuthService(fastify: FastifyInstance) {
 			if (!ok) {
 				throw fastify.httpErrors.unauthorized("Invalid credentials");
 			}
+
+			// single-device only
+			// await repo.revokeSessionsByUserId(user.id);
 
 			const token = randomToken(32);
 			const expiresAt = ttlDate(SESSION_TTL_SEC);
@@ -48,6 +52,7 @@ export function createAuthService(fastify: FastifyInstance) {
 			};
 		},
 
+		// verify session by token
 		async verify(token?: string) {
 			if (!token) return { user: null, valid: false } as const;
 

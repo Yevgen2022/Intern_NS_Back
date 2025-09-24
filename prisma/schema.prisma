@@ -24,6 +24,34 @@ model Feed {
   @@map("feeds")
 }
 
+
+
+// model Feed {
+//   id           String   @id @default(auto()) @map("_id") @db.ObjectId
+//
+//   sourceUrl    String   @unique                   // URL RSS/Atom
+//   sourceDomain String                             // Домен сайту
+//   title        String                             // Назва фіда
+//   description  String?                            // Короткий опис
+//   link         String?                            // Посилання на сайт (homepage)
+//   language     String?                            // Напр. "en", "uk"
+//   category     String                             // Категорія (world, tech, ua...)
+//   imageUrl     String?                            // Логотип/іконка
+//   isActive     Boolean  @default(true)            // Виключати без видалення
+//   items        Json                               // Оригінальний items[] (як зараз)
+//   allowHttp Boolean @default(false)               // Чи захищений
+//
+//
+//   createdAt    DateTime @default(now())
+//   updatedAt    DateTime @updatedAt
+//
+//   @@map("feeds")
+//   @@index([category])
+//   @@index([sourceDomain])
+//   @@index([isActive, category])
+// }
+
+
 model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   email        String   @unique

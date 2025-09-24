@@ -1,4 +1,4 @@
-// prisma/seed.ts
+// prisma/seed:users.ts
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcrypt';
 import { randomBytes } from 'crypto';

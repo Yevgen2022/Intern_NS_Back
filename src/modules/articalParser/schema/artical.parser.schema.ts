@@ -1,4 +1,7 @@
 // Schema for the request body when parsing an article
+
+const HTTP_URL_PATTERN = "^https?:\\/\\/\\S+$" as const;
+
 export const parseArticleBody = {
 	type: "object",
 	required: ["url"],
@@ -7,7 +10,7 @@ export const parseArticleBody = {
 			type: "string",
 			minLength: 8, // Minimum URL length like "http://a"
 			maxLength: 4096, // Maximum reasonable URL length
-			pattern: "^https?:\\/\\/\\S+$", // Must start with http:// or https:// and have no spaces
+			pattern: HTTP_URL_PATTERN,
 		},
 		// Option to force parsing even for dynamic websites
 		force: {
@@ -25,7 +28,7 @@ export const parseArticleResponse = {
 		// The original URL that was parsed
 		sourceUrl: {
 			type: "string",
-			pattern: "^https?:\\/\\/\\S+$",
+			pattern: "HTTP_URL_PATTERN",
 		},
 
 		// Article title (always required)
@@ -56,7 +59,7 @@ export const parseArticleResponse = {
 			type: "array",
 			items: {
 				type: "string",
-				pattern: "^https?:\\/\\/\\S+$",
+				pattern: "HTTP_URL_PATTERN",
 			},
 			uniqueItems: true, // No duplicate URLs
 		},
@@ -66,7 +69,7 @@ export const parseArticleResponse = {
 			type: "array",
 			items: {
 				type: "string",
-				pattern: "^https?:\\/\\/\\S+$",
+				pattern: "^https?:HTTP_URL_PATTERN",
 			},
 			uniqueItems: true, // No duplicate URLs
 		},

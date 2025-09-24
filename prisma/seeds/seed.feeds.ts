@@ -8,6 +8,7 @@ type SeedFeed = {
     category: 'world' | 'tech' | 'ua' | 'sports';
 };
 
+// World news feeds
 const WORLD: SeedFeed[] = [
     { title: 'BBC News', sourceUrl: 'https://feeds.bbci.co.uk/news/rss.xml', category: 'world' },
     { title: 'CNN World', sourceUrl: 'https://rss.cnn.com/rss/edition_world.rss', category: 'world' },
@@ -16,6 +17,7 @@ const WORLD: SeedFeed[] = [
     { title: 'New York Times Home', sourceUrl: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', category: 'world' },
 ];
 
+// Technology news feeds
 const TECH: SeedFeed[] = [
     { title: 'Hacker News', sourceUrl: 'https://news.ycombinator.com/rss', category: 'tech' },
     { title: 'TechCrunch', sourceUrl: 'https://techcrunch.com/feed/', category: 'tech' },
@@ -32,50 +34,55 @@ const UA: SeedFeed[] = [
     { title: 'ТСН', sourceUrl: 'https://tsn.ua/rss/full.rss', category: 'ua' },
 ];
 
+// Sports news feeds
 const SPORTS: SeedFeed[] = [
     { title: 'BBC Sport', sourceUrl: 'http://feeds.bbci.co.uk/sport/rss.xml?edition=uk', category: 'sports' },
     { title: 'ESPN Top Headlines', sourceUrl: 'https://www.espn.com/espn/rss/news', category: 'sports' },
     { title: 'Sky Sports Top Stories', sourceUrl: 'https://www.skysports.com/rss/12040', category: 'sports' },
 ];
 
-function getSourceDomain(u: string): string {
+// Extract domain name from URL
+function getSourceDomain(url: string): string {
     try {
-        return new URL(u).host.replace(/^www\./, '');
+        return new URL(url).host.replace(/^www\./, '');
     } catch {
         return '';
     }
 }
 
 async function main() {
-    //Clearing the collection
+    // Clear existing feeds from database
     await prisma.feed.deleteMany({});
 
-    const all: SeedFeed[] = [...WORLD, ...TECH, ...UA, ...SPORTS];
+    // Combine all feed categories into one array
+    const allFeeds: SeedFeed[] = [...WORLD, ...TECH, ...UA, ...SPORTS];
 
-    // Filling out the Prisma model
-    const rows = all.map((f) => ({
-        title: f.title,
-        sourceUrl: f.sourceUrl,
-        sourceDomain: getSourceDomain(f.sourceUrl),
-        category: f.category,
+    // Prepare data for Prisma model
+    const feedRows = allFeeds.map((feed) => ({
+        title: feed.title,
+        sourceUrl: feed.sourceUrl,
+        sourceDomain: getSourceDomain(feed.sourceUrl),
+        category: feed.category,
         description: null as string | null,
         link: null as string | null,
         language: null as string | null,
         imageUrl: null as string | null,
         isActive: true,
-        items: [] ,         // за моделлю items: Json — кладемо порожній масив
+        items: [], // Empty array for Json field according to model
     }));
 
+    // Insert all feeds into database
     await prisma.feed.createMany({
-        data: rows,
+        data: feedRows,
     });
 
-    console.log(`Seeded feeds: ${rows.length}`);
+    console.log(`Successfully seeded ${feedRows.length} feeds`);
 }
 
+// Run the seeding process
 main()
-    .catch((e) => {
-        console.error(e);
+    .catch((error) => {
+        console.error('Seeding failed:', error);
         process.exit(1);
     })
     .finally(async () => {

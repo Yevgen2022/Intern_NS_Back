@@ -1,43 +1,100 @@
-// controllers/artical.parse.controller.ts
-
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { parseArticle } from "../services/artical.parse.service";
-function sanitizeAndNormalizeUrl(raw: unknown): string {
-    if (typeof raw !== "string") throw new Error("URL must be a string");
 
-    let s = raw.trim().replace(/[\u200B-\u200D\uFEFF]/g, ""); // zero-width
-    if (s.includes("…")) throw new Error("URL looks truncated (contains …)");
-    // якщо раптом прослизнули пробіли — закодуємо
-    if (/\s/.test(s)) s = s.replace(/\s+/g, "%20");
+// Clean up and validate the URL before using it
+function cleanAndValidateUrl(userInput: unknown): string {
+    // Make sure input is a string
+    if (typeof userInput !== "string") {
+        throw new Error("URL must be a string");
+    }
 
-    let u: URL;
-    try { u = new URL(s); } catch { throw new Error("Invalid URL"); }
-    if (!/^https?:$/.test(u.protocol)) throw new Error("Only http/https URLs are supported.");
-    return u.toString();
+    // Remove spaces at start/end and invisible characters
+    let cleanUrl = userInput.trim();
+    cleanUrl = cleanUrl.replace(/[\u200B-\u200D\uFEFF]/g, ""); // Remove zero-width characters
+
+    // Check if URL looks cut off
+    if (cleanUrl.includes("…")) {
+        throw new Error("URL looks truncated (contains …)");
+    }
+
+    // Replace spaces with proper encoding
+    if (cleanUrl.includes(" ")) {
+        cleanUrl = cleanUrl.replace(/\s+/g, "%20");
+    }
+
+    // Try to create a proper URL object to validate it
+    let validUrl: URL;
+    try {
+        validUrl = new URL(cleanUrl);
+    } catch {
+        throw new Error("Invalid URL");
+    }
+
+    // Only allow http and https protocols
+    if (validUrl.protocol !== "http:" && validUrl.protocol !== "https:") {
+        throw new Error("Only http/https URLs are supported.");
+    }
+
+    return validUrl.toString();
 }
 
 export function parseArticleController(fastify: FastifyInstance) {
     return {
-        parseArticleController: async (req: FastifyRequest, reply: FastifyReply) => {
+        parseArticleController: async (request: FastifyRequest, reply: FastifyReply) => {
             try {
-                const body = req.body as { url?: string; force?: boolean } | undefined;
-                if (!body?.url) return reply.badRequest("Field 'url' is required.");
-                const url = sanitizeAndNormalizeUrl(body.url);
+                // Get the request body data
+                const requestBody = request.body as { url?: string; force?: boolean } | undefined;
 
-                const result = await parseArticle(url, body.force === true);
-                return reply.send(result);
-            } catch (err: any) {
-                const msg = err?.message || "Unexpected error";
-                if (/URL/.test(msg) || /Invalid URL/.test(msg)) {
-                    return reply.status(400).send({ message: msg });
+                // Check if URL was provided
+                if (!requestBody || !requestBody.url) {
+                    return reply.badRequest("Field 'url' is required.");
                 }
-                if (err?.code === "UNSUPPORTED_SITE") {
-                    return reply.status(422).send({ message: "Dynamic (SPA/SSR) page detected. Static pages only." });
+
+                // Clean and validate the URL
+                const cleanUrl = cleanAndValidateUrl(requestBody.url);
+
+                // Check if force parsing is requested
+                const forceMode = requestBody.force === true;
+
+                // Parse the article
+                const parseResult = await parseArticle(cleanUrl, forceMode);
+
+                // Send successful response
+                return reply.send(parseResult);
+
+            } catch (error: any) {
+                // Get error message
+                const errorMessage = error?.message || "Unexpected error";
+
+                // Handle URL validation errors
+                if (errorMessage.includes("URL") || errorMessage.includes("Invalid URL")) {
+                    return reply.status(400).send({ message: errorMessage });
                 }
-                if (err?.code === "FETCH_FAILED") return reply.status(502).send({ message: "Failed to fetch the source URL." });
-                if (err?.code === "PARSING_FAILED") return reply.status(500).send({ message: "Failed to parse the article HTML." });
-                fastify.log.error({ err }, "parseArticleController failed");
-                return reply.status(500).send({ message: msg });
+
+                // Handle different types of parsing errors
+                if (error?.code === "UNSUPPORTED_SITE") {
+                    return reply.status(422).send({
+                        message: "Dynamic (SPA/SSR) page detected. Static pages only."
+                    });
+                }
+
+                if (error?.code === "FETCH_FAILED") {
+                    return reply.status(502).send({
+                        message: "Failed to fetch the source URL."
+                    });
+                }
+
+                if (error?.code === "PARSING_FAILED") {
+                    return reply.status(500).send({
+                        message: "Failed to parse the article HTML."
+                    });
+                }
+
+                // Log unexpected errors for debugging
+                fastify.log.error({ err: error }, "parseArticleController failed");
+
+                // Return generic error for unexpected cases
+                return reply.status(500).send({ message: errorMessage });
             }
         },
     };

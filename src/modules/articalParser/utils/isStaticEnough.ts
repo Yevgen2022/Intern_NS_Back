@@ -1,49 +1,95 @@
-// modules/articalParser/utils/isStaticEnough.ts
 export function isStaticEnough(html: string) {
-    const reasons: string[] = [];
-    const lower = html.toLowerCase();
+    const problems: string[] = [];
+    const htmlLower = html.toLowerCase();
 
-    // 1) Явні маркери SPA/SSR
-    const spaMarkers = [
-        'id="__next"', 'id="root"', 'id="app"', 'data-reactroot',
-        'window.__nuxt__', '__NUXT__', 'astro-island', 'sveltekit',
-        'webpackchunk', '/@vite/client', 'vite/client',
+    // Check if it's a single page application
+    const spaKeywords = [
+        'id="__next"',
+        'id="root"',
+        'id="app"',
+        'data-reactroot',
+        'window.__nuxt__',
+        '__NUXT__',
+        'astro-island',
+        'sveltekit',
+        'webpackchunk',
+        '/@vite/client',
+        'vite/client'
     ];
-    if (spaMarkers.some(m => lower.includes(m.toLowerCase()))) {
-        reasons.push("SPA/SSR marker detected");
+
+    for (const keyword of spaKeywords) {
+        if (htmlLower.includes(keyword.toLowerCase())) {
+            problems.push("Dynamic website detected");
+            break;
+        }
     }
 
-    // 2) Багато скриптів або “важкі” скрипти
-    const scriptTags = lower.match(/<script\b[^>]*>/g) || [];
-    const scriptCount = scriptTags.length;
-    if (scriptCount > 40) reasons.push(`Too many scripts: ${scriptCount}`);
+    // Count script tags
+    const scriptMatches = htmlLower.match(/<script\b[^>]*>/g);
+    const scriptCount = scriptMatches ? scriptMatches.length : 0;
 
-    const totalBytes = html.length;
-    const scriptBlocks = Array.from(html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi));
-    const scriptBytes = scriptBlocks.reduce((acc, m) => acc + (m[1]?.length ?? 0), 0);
-    const scriptShare = totalBytes ? scriptBytes / totalBytes : 0;
-    if (scriptShare > 0.35) reasons.push(`Script share too high: ${(scriptShare*100).toFixed(0)}%`);
+    if (scriptCount > 40) {
+        problems.push(`Too many scripts found: ${scriptCount}`);
+    }
 
-    // 3) Важкі JSON-дампи
-    const bigJsonDump = Array.from(html.matchAll(/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi))
-        .some(m => (m[1]?.length ?? 0) > 50_000);
-    if (bigJsonDump) reasons.push("Big JSON dump in script tags");
+    // Check how much JavaScript code vs HTML
+    const totalSize = html.length;
+    let scriptCodeSize = 0;
 
-    // 4) Перевірка на наявність реального тексту
-    const mainTextChars =
-        (lower.match(/<(main|article)\b[\s\S]*?<\/\1>/)?.[0] || html)
-            .replace(/<style[\s\S]*?<\/style>/gi, "")
-            .replace(/<script[\s\S]*?<\/script>/gi, "")
-            .replace(/<[^>]+>/g, "")
-            .replace(/\s+/g, " ")
-            .trim().length;
+    const scriptBlocks = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
+    if (scriptBlocks) {
+        for (const block of scriptBlocks) {
+            const codeMatch = block.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+            if (codeMatch && codeMatch[1]) {
+                scriptCodeSize += codeMatch[1].length;
+            }
+        }
+    }
 
-    if (mainTextChars < 600) reasons.push(`Too little main text: ${mainTextChars} chars`);
+    const scriptPercentage = totalSize > 0 ? (scriptCodeSize / totalSize) * 100 : 0;
+    if (scriptPercentage > 35) {
+        problems.push(`Too much JavaScript: ${Math.round(scriptPercentage)}%`);
+    }
 
-    // 5) Повідомлення про вимкнений JS
-    if (lower.includes("please enable javascript")) reasons.push("Message: please enable JavaScript");
+    // Look for big JSON data
+    const jsonScripts = html.match(/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    if (jsonScripts) {
+        for (const jsonScript of jsonScripts) {
+            const jsonMatch = jsonScript.match(/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/i);
+            if (jsonMatch && jsonMatch[1] && jsonMatch[1].length > 50000) {
+                problems.push("Large JSON data found in scripts");
+                break;
+            }
+        }
+    }
 
-    // Проста оцінка: якщо є хоч одна “погана” причина — вважаємо не статичним
-    const ok = reasons.length === 0;
-    return { ok, reasons, score: ok ? 1 : 0 };
+    // Check if there's enough actual text content
+    let textContent = html;
+
+    // Remove style tags
+    textContent = textContent.replace(/<style[\s\S]*?<\/style>/gi, "");
+    // Remove script tags
+    textContent = textContent.replace(/<script[\s\S]*?<\/script>/gi, "");
+    // Remove HTML tags
+    textContent = textContent.replace(/<[^>]+>/g, "");
+    // Clean up whitespace
+    textContent = textContent.replace(/\s+/g, " ").trim();
+
+    const textLength = textContent.length;
+    if (textLength < 600) {
+        problems.push(`Not enough text content: ${textLength} characters`);
+    }
+
+    // Check for JavaScript required message
+    if (htmlLower.includes("please enable javascript")) {
+        problems.push("Page requires JavaScript to work");
+    }
+
+    // Return result
+    const isStatic = problems.length === 0;
+    return {
+        ok: isStatic,
+        reasons: problems,
+        score: isStatic ? 1 : 0
+    };
 }

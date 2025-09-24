@@ -19,23 +19,5 @@ export async function parseRoutes(fastify: FastifyInstance) {
         {schema: {body: parseArticleBody, response: {200: parseArticleResponse}}},
         controller.parseArticleController,
     );
-
-
-
 }
 
-
-//handler: async (req, reply) => {
-//     const { url } = req.query as { url: string };
-//
-//     // 🔹 тимчасова заглушка (сервіс буде пізніше)
-//     return {
-//         sourceUrl: url,
-//         title: "Demo title",
-//         author: null,
-//         publishedAt: null,
-//         content: "Demo content",
-//         images: [],
-//         links: [],
-//     };
-// },

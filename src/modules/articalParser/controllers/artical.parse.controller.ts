@@ -1,101 +1,103 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type {
+	FastifyError,
+	FastifyInstance,
+	FastifyReply,
+	FastifyRequest,
+} from "fastify";
 import { parseArticle } from "../services/artical.parse.service";
 
 // Clean up and validate the URL before using it
 function cleanAndValidateUrl(userInput: unknown): string {
-    // Make sure input is a string
-    if (typeof userInput !== "string") {
-        throw new Error("URL must be a string");
-    }
+	if (typeof userInput !== "string") {
+		throw new Error("URL must be a string");
+	}
 
-    // Remove spaces at start/end and invisible characters
-    let cleanUrl = userInput.trim();
-    cleanUrl = cleanUrl.replace(/[\u200B-\u200D\uFEFF]/g, ""); // Remove zero-width characters
+	let cleanUrl = userInput.trim().replace(/[\u200B-\u200D\uFEFF]/g, ""); // Remove zero-width chars
 
-    // Check if URL looks cut off
-    if (cleanUrl.includes("…")) {
-        throw new Error("URL looks truncated (contains …)");
-    }
+	if (cleanUrl.includes("…")) {
+		throw new Error("URL looks truncated (contains …)");
+	}
 
-    // Replace spaces with proper encoding
-    if (cleanUrl.includes(" ")) {
-        cleanUrl = cleanUrl.replace(/\s+/g, "%20");
-    }
+	if (cleanUrl.includes(" ")) {
+		cleanUrl = cleanUrl.replace(/\s+/g, "%20");
+	}
 
-    // Try to create a proper URL object to validate it
-    let validUrl: URL;
-    try {
-        validUrl = new URL(cleanUrl);
-    } catch {
-        throw new Error("Invalid URL");
-    }
+	let validUrl: URL;
+	try {
+		validUrl = new URL(cleanUrl);
+	} catch {
+		throw new Error("Invalid URL");
+	}
 
-    // Only allow http and https protocols
-    if (validUrl.protocol !== "http:" && validUrl.protocol !== "https:") {
-        throw new Error("Only http/https URLs are supported.");
-    }
+	if (validUrl.protocol !== "http:" && validUrl.protocol !== "https:") {
+		throw new Error("Only http/https URLs are supported.");
+	}
 
-    return validUrl.toString();
+	return validUrl.toString();
+}
+
+function pickMessageAndCode(e: unknown): { message: string; code?: string } {
+	if (typeof e === "object" && e !== null) {
+		const obj = e as Partial<FastifyError> &
+			Partial<Error> &
+			Record<string, unknown>;
+		const message =
+			typeof obj.message === "string" ? obj.message : "Unexpected error";
+		const code = typeof obj.code === "string" ? obj.code : undefined;
+		return { message, code };
+	}
+	return { message: String(e) };
 }
 
 export function parseArticleController(fastify: FastifyInstance) {
-    return {
-        parseArticleController: async (request: FastifyRequest, reply: FastifyReply) => {
-            try {
-                // Get the request body data
-                const requestBody = request.body as { url?: string; force?: boolean } | undefined;
+	return {
+		parseArticleController: async (
+			request: FastifyRequest,
+			reply: FastifyReply,
+		) => {
+			try {
+				const body = request.body as
+					| { url?: string; force?: boolean }
+					| undefined;
 
-                // Check if URL was provided
-                if (!requestBody || !requestBody.url) {
-                    return reply.badRequest("Field 'url' is required.");
-                }
+				if (!body?.url) {
+					throw fastify.httpErrors.badRequest("Field 'url' is required.");
+				}
 
-                // Clean and validate the URL
-                const cleanUrl = cleanAndValidateUrl(requestBody.url);
+				const url = cleanAndValidateUrl(body.url);
+				const force = body.force === true;
 
-                // Check if force parsing is requested
-                const forceMode = requestBody.force === true;
+				const result = await parseArticle(url, force);
+				return reply.send(result);
+			} catch (error: unknown) {
+				const { message, code } = pickMessageAndCode(error);
 
-                // Parse the article
-                const parseResult = await parseArticle(cleanUrl, forceMode);
+				// URL validation errors from cleanAndValidateUrl
+				if (/URL/.test(message) || /Invalid URL/.test(message)) {
+					throw fastify.httpErrors.badRequest(message);
+				}
 
-                // Send successful response
-                return reply.send(parseResult);
+				// Service-layer codes
+				if (code === "UNSUPPORTED_SITE") {
+					throw fastify.httpErrors.unprocessableEntity(
+						"Dynamic (SPA/SSR) page detected. Static pages only.",
+					);
+				}
+				if (code === "FETCH_FAILED") {
+					throw fastify.httpErrors.badGateway(
+						"Failed to fetch the source URL.",
+					);
+				}
+				if (code === "PARSING_FAILED") {
+					throw fastify.httpErrors.internalServerError(
+						"Failed to parse the article HTML.",
+					);
+				}
 
-            } catch (error: any) {
-                // Get error message
-                const errorMessage = error?.message || "Unexpected error";
-
-                // Handle URL validation errors
-                if (errorMessage.includes("URL") || errorMessage.includes("Invalid URL")) {
-                    return reply.status(400).send({ message: errorMessage });
-                }
-
-                // Handle different types of parsing errors
-                if (error?.code === "UNSUPPORTED_SITE") {
-                    return reply.status(422).send({
-                        message: "Dynamic (SPA/SSR) page detected. Static pages only."
-                    });
-                }
-
-                if (error?.code === "FETCH_FAILED") {
-                    return reply.status(502).send({
-                        message: "Failed to fetch the source URL."
-                    });
-                }
-
-                if (error?.code === "PARSING_FAILED") {
-                    return reply.status(500).send({
-                        message: "Failed to parse the article HTML."
-                    });
-                }
-
-                // Log unexpected errors for debugging
-                fastify.log.error({ err: error }, "parseArticleController failed");
-
-                // Return generic error for unexpected cases
-                return reply.status(500).send({ message: errorMessage });
-            }
-        },
-    };
+				// Fallback: log and rethrow as 500
+				fastify.log.error({ err: error }, "parseArticleController failed");
+				throw fastify.httpErrors.internalServerError(message);
+			}
+		},
+	};
 }

@@ -1,95 +1,93 @@
 export function isStaticEnough(html: string) {
-    const problems: string[] = [];
-    const htmlLower = html.toLowerCase();
+	const problems: string[] = [];
+	const htmlLower = html.toLowerCase();
 
-    // Check if it's a single page application
-    const spaKeywords = [
-        'id="__next"',
-        'id="root"',
-        'id="app"',
-        'data-reactroot',
-        'window.__nuxt__',
-        '__NUXT__',
-        'astro-island',
-        'sveltekit',
-        'webpackchunk',
-        '/@vite/client',
-        'vite/client'
-    ];
+	// Check if it's a single page application
+	const spaKeywords = [
+		'id="__next"',
+		'id="root"',
+		'id="app"',
+		"data-reactroot",
+		"window.__nuxt__",
+		"__NUXT__",
+		"astro-island",
+		"sveltekit",
+		"webpackchunk",
+		"/@vite/client",
+		"vite/client",
+	];
 
-    for (const keyword of spaKeywords) {
-        if (htmlLower.includes(keyword.toLowerCase())) {
-            problems.push("Dynamic website detected");
-            break;
-        }
-    }
+	for (const keyword of spaKeywords) {
+		if (htmlLower.includes(keyword.toLowerCase())) {
+			problems.push("Dynamic website detected");
+			break;
+		}
+	}
 
-    // Count script tags
-    const scriptMatches = htmlLower.match(/<script\b[^>]*>/g);
-    const scriptCount = scriptMatches ? scriptMatches.length : 0;
+	// Count script tags
+	const scriptMatches = htmlLower.match(/<script\b[^>]*>/g);
+	const scriptCount = scriptMatches?.length ?? 0;
+	if (scriptCount > 40) {
+		problems.push(`Too many scripts found: ${scriptCount}`);
+	}
 
-    if (scriptCount > 40) {
-        problems.push(`Too many scripts found: ${scriptCount}`);
-    }
+	// Check how much JavaScript code vs HTML
+	const totalSize = html.length;
+	let scriptCodeSize = 0;
 
-    // Check how much JavaScript code vs HTML
-    const totalSize = html.length;
-    let scriptCodeSize = 0;
+	const scriptBlocks =
+		html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi) ?? [];
+	for (const block of scriptBlocks) {
+		const code = /<script\b[^>]*>([\s\S]*?)<\/script>/i.exec(block)?.[1];
+		if (code) {
+			scriptCodeSize += code.length;
+		}
+	}
 
-    const scriptBlocks = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/gi);
-    if (scriptBlocks) {
-        for (const block of scriptBlocks) {
-            const codeMatch = block.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
-            if (codeMatch && codeMatch[1]) {
-                scriptCodeSize += codeMatch[1].length;
-            }
-        }
-    }
+	const scriptPercentage =
+		totalSize > 0 ? (scriptCodeSize / totalSize) * 100 : 0;
+	if (scriptPercentage > 35) {
+		problems.push(`Too much JavaScript: ${Math.round(scriptPercentage)}%`);
+	}
 
-    const scriptPercentage = totalSize > 0 ? (scriptCodeSize / totalSize) * 100 : 0;
-    if (scriptPercentage > 35) {
-        problems.push(`Too much JavaScript: ${Math.round(scriptPercentage)}%`);
-    }
+	// Look for big JSON data
+	const jsonScripts =
+		html.match(
+			/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi,
+		) ?? [];
+	for (const jsonScript of jsonScripts) {
+		const json =
+			/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/i.exec(
+				jsonScript,
+			)?.[1];
+		if (json && json.length > 50_000) {
+			problems.push("Large JSON data found in scripts");
+			break;
+		}
+	}
 
-    // Look for big JSON data
-    const jsonScripts = html.match(/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi);
-    if (jsonScripts) {
-        for (const jsonScript of jsonScripts) {
-            const jsonMatch = jsonScript.match(/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/i);
-            if (jsonMatch && jsonMatch[1] && jsonMatch[1].length > 50000) {
-                problems.push("Large JSON data found in scripts");
-                break;
-            }
-        }
-    }
+	// Check if there's enough actual text content
+	const textContent = html
+		.replace(/<style[\s\S]*?<\/style>/gi, "")
+		.replace(/<script[\s\S]*?<\/script>/gi, "")
+		.replace(/<[^>]+>/g, "")
+		.replace(/\s+/g, " ")
+		.trim();
 
-    // Check if there's enough actual text content
-    let textContent = html;
+	const textLength = textContent.length;
+	if (textLength < 600) {
+		problems.push(`Not enough text content: ${textLength} characters`);
+	}
 
-    // Remove style tags
-    textContent = textContent.replace(/<style[\s\S]*?<\/style>/gi, "");
-    // Remove script tags
-    textContent = textContent.replace(/<script[\s\S]*?<\/script>/gi, "");
-    // Remove HTML tags
-    textContent = textContent.replace(/<[^>]+>/g, "");
-    // Clean up whitespace
-    textContent = textContent.replace(/\s+/g, " ").trim();
+	// Check for JavaScript required message
+	if (htmlLower.includes("please enable javascript")) {
+		problems.push("Page requires JavaScript to work");
+	}
 
-    const textLength = textContent.length;
-    if (textLength < 600) {
-        problems.push(`Not enough text content: ${textLength} characters`);
-    }
-
-    // Check for JavaScript required message
-    if (htmlLower.includes("please enable javascript")) {
-        problems.push("Page requires JavaScript to work");
-    }
-
-    // Return result
-    const isStatic = problems.length === 0;
-    return {
-        ok: isStatic,
-        reasons: problems,
-        score: isStatic ? 1 : 0
-    };
+	const isStatic = problems.length === 0;
+	return {
+		ok: isStatic,
+		reasons: problems,
+		score: isStatic ? 1 : 0,
+	};
 }

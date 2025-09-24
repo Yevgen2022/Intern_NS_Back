@@ -4,6 +4,7 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import configPlugin from "./config";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
+import { parseRoutes } from "./modules/articalParser/routes/artical.parser.route"
 
 export type AppOptions = Partial<FastifyServerOptions>;
 
@@ -33,7 +34,7 @@ async function buildApp(options: AppOptions = {}) {
 
 	fastify.register(getFeedDataRoutes);
 	fastify.register(authRoutes, { prefix: "/api" });
-
+    fastify.register(parseRoutes, { prefix: "/api" });
 	return fastify;
 }
 

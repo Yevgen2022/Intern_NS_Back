@@ -10,7 +10,6 @@ export async function getFeedDataController(
 	request: FastifyRequest<{ Querystring: FeedQuery }>,
 	reply: FastifyReply,
 ) {
-
 	const { prisma } = request.server;
 	const { url, force } = request.query;
 

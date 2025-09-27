@@ -1,40 +1,40 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import type { FeedMeta, NormalizedFeedItem } from "../types/feed.types";
 
 export async function findCache(prisma: PrismaClient, sourceUrl: string) {
-    const row = await prisma.feed.findUnique({
-        where: { sourceUrl },
-        select: { meta: true, items: true },
-    });
-    if (!row) return null;
+	const row = await prisma.feed.findUnique({
+		where: { sourceUrl },
+		select: { meta: true, items: true },
+	});
+	if (!row) return null;
 
-    return {
-        meta: row.meta as FeedMeta,
-        items: row.items as NormalizedFeedItem[],
-    };
+	return {
+		meta: row.meta as FeedMeta,
+		items: row.items as NormalizedFeedItem[],
+	};
 }
 
 export async function upsertCache(
-    prisma: PrismaClient,
-    sourceUrl: string,
-    meta: FeedMeta,
-    items: NormalizedFeedItem[],
+	prisma: PrismaClient,
+	sourceUrl: string,
+	meta: FeedMeta,
+	items: NormalizedFeedItem[],
 ) {
-    if (meta == null || typeof meta !== "object") {
-        throw new Error("upsertCache: meta is null/undefined");
-    }
+	if (meta == null || typeof meta !== "object") {
+		throw new Error("upsertCache: meta is null/undefined");
+	}
 
-    const metaJson = meta as Prisma.InputJsonValue;
-    const itemsJson = items as Prisma.InputJsonValue;
+	const metaJson = meta as Prisma.InputJsonValue;
+	const itemsJson = items as Prisma.InputJsonValue;
 
-    return prisma.feed.upsert({
-        where: { sourceUrl },
-        create: { sourceUrl, meta: metaJson, items: itemsJson },
-        update: { meta: metaJson, items: itemsJson },
-    });
+	return prisma.feed.upsert({
+		where: { sourceUrl },
+		create: { sourceUrl, meta: metaJson, items: itemsJson },
+		update: { meta: metaJson, items: itemsJson },
+	});
 }
 
- export async function findAllSources(prisma: PrismaClient): Promise<string[]> {
- 	const sources = await prisma.feed.findMany({ select: { sourceUrl: true } });
- 	return sources.map((s) => s.sourceUrl);
- }
+export async function findAllSources(prisma: PrismaClient): Promise<string[]> {
+	const sources = await prisma.feed.findMany({ select: { sourceUrl: true } });
+	return sources.map((s) => s.sourceUrl);
+}

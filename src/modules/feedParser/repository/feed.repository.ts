@@ -18,6 +18,6 @@ export async function upsertCache(
 }
 
 export async function findAllSources(prisma: PrismaClient): Promise<string[]> {
-    const sources = await prisma.feed.findMany({ select: { sourceUrl: true } });
-    return sources.map((s) => s.sourceUrl);
+	const sources = await prisma.feed.findMany({ select: { sourceUrl: true } });
+	return sources.map((s) => s.sourceUrl);
 }

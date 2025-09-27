@@ -1,5 +1,3 @@
-// src/modules/feed/schemas/getFeedData.schema.ts
-
 export const schema = {
 	tags: ["feed"],
 	summary: "Get feed data",

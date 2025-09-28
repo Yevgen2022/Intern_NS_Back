@@ -13,18 +13,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// model Feed {
-//   id String @id @default(auto()) @map("_id") @db.ObjectId
-//
-//   sourceUrl String   @unique
-//   items     Json
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-//
-//   @@map("feeds")
-// }
-
-
 model Feed {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
 

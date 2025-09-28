@@ -1,0 +1,231 @@
+
+
+  openapi: 3.0.3
+  info:
+    title: Intern_NS_Back API
+    version: 1.0.0
+    description: >
+      Backend (Fastify + TypeScript + Prisma/Mongo).
+      Endpoints for healthcheck, RSS parsing, and simple authentication.
+  servers:
+    - url: https://internnsback-production.up.railway.app
+      description: Production (Railway)
+    - url: http://localhost:3500
+      description: Local
+  tags:
+    - name: Health
+    - name: Feed
+    - name: Auth
+  paths:
+    /:
+      get:
+        tags: [Health]
+        summary: Root ping
+        responses:
+          '200':
+            description: OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties: { ok: { type: boolean }, service: { type: string } }
+                  example: { ok: true, service: "Intern_NS_Back" }
+
+    /health:
+      get:
+        tags: [Health]
+        summary: Health check
+        responses:
+          '200':
+            description: Service OK
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties: { ok: { type: boolean } }
+                  example: { ok: true }
+
+    /feed:
+      get:
+        tags: [Feed]
+        summary: Get RSS feed (parsing)
+        description: >
+          If **url** is not provided, uses default `DEFAULT_FEED_URL` from ENV (add it to Railway Variables).
+          Some RSS sources require User-Agent; this is handled in the code.
+        parameters:
+          - in: query
+            name: url
+            schema: { type: string, format: uri }
+            required: false
+            description: Full RSS/ATOM URL
+        responses:
+          '200':
+            description: Successful parsing
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/FeedResponse'
+          '400':
+            description: Invalid request
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+          '502':
+            description: Failed to fetch/parse feed
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+
+    /api/parse:
+      post:
+        tags: [Feed]
+        summary: Parse feed from request body
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string, format: uri }
+        responses:
+          '200':
+            description: Successful parsing
+            content:
+              application/json:
+                schema: { $ref: '#/components/schemas/FeedResponse' }
+          '400':
+            description: Invalid request
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+          '502':
+            description: Failed to fetch/parse feed
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+
+    /api/register:
+      post:
+        tags: [Auth]
+        summary: User registration
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, password]
+                properties:
+                  email: { type: string, format: email }
+                  password: { type: string, minLength: 6 }
+                  name: { type: string }
+        responses:
+          '201':
+            description: Created
+            content:
+              application/json:
+                schema: { $ref: '#/components/schemas/User' }
+          '409':
+            description: User already exists
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+          '400':
+            description: Invalid data
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+
+    /api/log/in:
+      post:
+        tags: [Auth]
+        summary: Login
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, password]
+                properties:
+                  email: { type: string, format: email }
+                  password: { type: string }
+        responses:
+          '200':
+            description: Authorized (cookie set)
+            headers:
+              Set-Cookie:
+                schema: { type: string }
+                description: Session cookie (name depends on implementation)
+            content:
+              application/json:
+                schema: { $ref: '#/components/schemas/User' }
+          '401':
+            description: Invalid credentials
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+
+    /api/log/out:
+      post:
+        tags: [Auth]
+        summary: Logout (clear session)
+        responses:
+          '204':
+            description: Session terminated (no body)
+
+    /api/whoami:
+      get:
+        tags: [Auth]
+        summary: Current user (by cookie/session)
+        responses:
+          '200':
+            description: Authorized
+            content:
+              application/json:
+                schema: { $ref: '#/components/schemas/User' }
+          '401':
+            description: Unauthorized
+            content:
+              application/json: { schema: { $ref: '#/components/schemas/Error' } }
+
+  components:
+    schemas:
+      FeedItem:
+        type: object
+        properties:
+          title: { type: string }
+          link: { type: string }
+          pubDate: { type: string }
+          author: { type: string }
+          categories:
+            type: array
+            items: { type: string }
+          summary: { type: string }
+          content: { type: string }
+      FeedResponse:
+        type: object
+        properties:
+          sourceUrl: { type: string, format: uri }
+          title: { type: string }
+          items:
+            type: array
+            items: { $ref: '#/components/schemas/FeedItem' }
+        example:
+          sourceUrl: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+          title: "NYTimes > World News"
+          items:
+            - title: "Sample"
+              link: "https://example.com/article"
+              pubDate: "Mon, 01 Jan 2025 00:00:00 GMT"
+              author: "Author"
+              categories: ["World"]
+              summary: "Short summary"
+      User:
+        type: object
+        properties:
+          id: { type: string }
+          email: { type: string, format: email }
+          name: { type: string }
+      Error:
+        type: object
+        properties:
+          statusCode: { type: integer }
+          error: { type: string }
+          message: { type: string }
+    ```

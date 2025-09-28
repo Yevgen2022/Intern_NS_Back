@@ -8,26 +8,25 @@ async function start() {
 	// const port = fastify.config.PORT;
 	// const host = fastify.config.HOST;
 
-    const port = Number(process.env.PORT ?? fastify.config.PORT ?? 3500);
-    const host = process.env.HOST ?? fastify.config.HOST ?? "0.0.0.0";
+	const port = Number(process.env.PORT ?? fastify.config.PORT ?? 3500);
+	const host = process.env.HOST ?? fastify.config.HOST ?? "0.0.0.0";
 
-////////////////////////////////////
+	////////////////////////////////////
 
-    {
-        const url = process.env.DATABASE_URL ?? "";
-        const masked = url.replace(/\/\/([^:]+):[^@]+@/, "//$1:***@");
-        console.log("DATABASE_URL (masked) =", masked);
-    }
+	{
+		const url = process.env.DATABASE_URL ?? "";
+		const masked = url.replace(/\/\/([^:]+):[^@]+@/, "//$1:***@");
+		console.log("DATABASE_URL (masked) =", masked);
+	}
 
+	fastify.get("/health", async () => ({ ok: true }));
+	fastify.get("/", async () => ({ ok: true, service: "Intern_NS_Back" }));
+	await fastify.ready();
+	console.log(fastify.printRoutes());
 
-    fastify.get('/health', async () => ({ ok: true }));
-    fastify.get('/', async () => ({ ok: true, service: 'Intern_NS_Back' }));
-    await fastify.ready();
-    console.log(fastify.printRoutes());
+	////////////////////////////////////
 
-////////////////////////////////////
-
-    fastify.listen({ port, host }, (err, address) => {
+	fastify.listen({ port, host }, (err, address) => {
 		if (err) {
 			console.log(err);
 			process.exit(1);

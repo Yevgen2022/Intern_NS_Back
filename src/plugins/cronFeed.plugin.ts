@@ -8,7 +8,7 @@ export default fp(
 		const prisma = fastify.prisma; //accept to Prisma from fastify
 
 		//  each 5 minutes
-		cron.schedule("*/5 * * * *", async () => {
+		cron.schedule("*/30 * * * *", async () => {
 			fastify.log.info("Running cron job: refresh feeds");
 
 			try {

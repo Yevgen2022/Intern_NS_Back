@@ -11,6 +11,15 @@ async function start() {
     const port = Number(process.env.PORT ?? fastify.config.PORT ?? 3500);
     const host = process.env.HOST ?? fastify.config.HOST ?? "0.0.0.0";
 
+////////////////////////////////////
+
+    {
+        const url = process.env.DATABASE_URL ?? "";
+        const masked = url.replace(/\/\/([^:]+):[^@]+@/, "//$1:***@");
+        console.log("DATABASE_URL (masked) =", masked);
+    }
+
+////////////////////////////////////
 
     fastify.listen({ port, host }, (err, address) => {
 		if (err) {

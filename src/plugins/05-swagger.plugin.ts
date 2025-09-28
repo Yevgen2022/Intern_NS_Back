@@ -20,9 +20,8 @@ export default fp(async (app) => {
 			],
 			components: {
 				securitySchemes: {
-					// Якщо у вас cookie-сесія — підкоригуй name під свою куку
+
 					cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
-					// bearerAuth: { type: 'http', scheme: 'bearer' },
 				},
 				schemas: {}, // routes with their own schemas
 			},

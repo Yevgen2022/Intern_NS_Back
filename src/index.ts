@@ -19,6 +19,12 @@ async function start() {
         console.log("DATABASE_URL (masked) =", masked);
     }
 
+
+    fastify.get('/health', async () => ({ ok: true }));
+    fastify.get('/', async () => ({ ok: true, service: 'Intern_NS_Back' }));
+    await fastify.ready();
+    console.log(fastify.printRoutes());
+
 ////////////////////////////////////
 
     fastify.listen({ port, host }, (err, address) => {

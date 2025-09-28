@@ -2,6 +2,9 @@
   "name": "feed",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"tsc -w\" \"nodemon\"",
     "start:dev": "nodemon",
@@ -10,6 +13,7 @@
     "allint": "npm run lint:fix && npm run lint",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.json",
+    "postbuild": "npm run prisma:push",
     "start": "node build/index.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",

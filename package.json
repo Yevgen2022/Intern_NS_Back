@@ -13,7 +13,7 @@
     "allint": "npm run lint:fix && npm run lint",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.json",
-    "start": "node build/index.js",
+    "start": "node src/index.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "postinstall": "prisma generate",

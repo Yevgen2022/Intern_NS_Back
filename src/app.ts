@@ -1,4 +1,3 @@
-import "./types/fastify";
 import { join } from "node:path";
 import AutoLoad from "@fastify/autoload";
 import Fastify, { type FastifyServerOptions } from "fastify";

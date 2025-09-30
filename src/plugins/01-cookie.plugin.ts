@@ -6,7 +6,6 @@ const pluginName = "cookie-plugin";
 export default fp(
 	async (fastify) => {
 		await fastify.register(cookie, {
-			// приклад дефолтів для твого Auth
 			parseOptions: {
 				sameSite: "lax",
 				httpOnly: true,

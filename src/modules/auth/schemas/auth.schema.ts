@@ -35,8 +35,19 @@ export const loginBody = {
 	required: ["email", "password"],
 	additionalProperties: false,
 	properties: {
-		email: { type: "string", format: "email", minLength: 5, maxLength: 255, examples: ["admin@example.com"] },
-		password: { type: "string", minLength: 8, maxLength: 200, examples: ["12345678"] },
+		email: {
+			type: "string",
+			format: "email",
+			minLength: 5,
+			maxLength: 255,
+			examples: ["admin@example.com"],
+		},
+		password: {
+			type: "string",
+			minLength: 8,
+			maxLength: 200,
+			examples: ["12345678"],
+		},
 	},
 } as const;
 

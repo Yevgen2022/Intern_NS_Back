@@ -1,16 +1,26 @@
 import { join } from "node:path";
 import AutoLoad from "@fastify/autoload";
+import multipart from "@fastify/multipart";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import configPlugin from "./config";
+import { lineItemRoutes } from "./modules/AddServer/lineItem/routes/lineItem.routes";
 import { parseRoutes } from "./modules/articalParser/routes/artical.parser.route";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
-import { lineItemRoutes } from "./modules/AddServer/lineItem/routes/lineItem.routes";
 
 export type AppOptions = Partial<FastifyServerOptions>;
 
 async function buildApp(options: AppOptions = {}) {
 	const fastify = Fastify({ logger: true }); //create server Turns on the built-in logger.
+
+	await fastify.register(multipart, {
+		attachFieldsToBody: true,
+		limits: {
+			fileSize: 5 * 1024 * 1024, // 5MB
+			files: 1,
+		},
+	});
+
 	await fastify.register(configPlugin); //Connects your config plugin
 
 	try {
@@ -36,7 +46,7 @@ async function buildApp(options: AppOptions = {}) {
 	fastify.register(getFeedDataRoutes);
 	fastify.register(authRoutes, { prefix: "/api" });
 	fastify.register(parseRoutes, { prefix: "/api" });
-    fastify.register(lineItemRoutes, { prefix: "/api" });
+	fastify.register(lineItemRoutes, { prefix: "/api" });
 	return fastify;
 }
 

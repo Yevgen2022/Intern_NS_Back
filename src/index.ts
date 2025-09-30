@@ -5,14 +5,8 @@ async function start() {
 		logger: true,
 	});
 
-	// const port = fastify.config.PORT;
-	// const host = fastify.config.HOST;
-
-	// const port = Number(process.env.PORT ?? fastify.config.PORT ?? 3500);
-	// const host = process.env.HOST ?? fastify.config.HOST ?? "0.0.0.0";
-
-    const port = Number(process.env.PORT ?? 3500);
-    const host = process.env.HOST ?? "0.0.0.0";
+	const port = Number(process.env.PORT ?? 3500);
+	const host = process.env.HOST ?? "0.0.0.0";
 
 	////////////////////////////////////
 
@@ -25,7 +19,7 @@ async function start() {
 	fastify.get("/health", async () => ({ ok: true }));
 	fastify.get("/", async () => ({ ok: true, service: "Intern_NS_Back" }));
 	await fastify.ready();
-	console.log(fastify.printRoutes());
+	// console.log(fastify.printRoutes());
 
 	////////////////////////////////////
 

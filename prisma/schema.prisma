@@ -46,3 +46,51 @@ model Session {
 
   @@map("sessions")
 }
+
+model Creative {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  url          String
+  type         AdType   // Змінили з String на AdType
+  width        Int
+  height       Int
+  mime         String
+  bytes        Int
+  originalName String?
+  createdAt    DateTime @default(now())
+
+  lineItems    LineItem[]
+
+  @@map("creatives")
+}
+
+model LineItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  size        String
+  cpmMin      Float
+  cpmMax      Float
+  geo         String[]
+  adType      AdType   @default(banner)  // Змінили з String на AdType
+  frequency   Int      @default(1)
+  status      Status   @default(active)  // Змінили з String на Status
+  creativeId  String   @db.ObjectId
+  creative    Creative @relation(fields: [creativeId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([geo])
+  @@index([status, cpmMin, cpmMax])
+  @@map("line_items")
+}
+
+
+enum AdType {
+  banner
+  video
+  native
+}
+
+enum Status {
+  active
+  inactive
+  paused
+}

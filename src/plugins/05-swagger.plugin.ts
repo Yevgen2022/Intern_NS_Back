@@ -20,7 +20,6 @@ export default fp(async (app) => {
 			],
 			components: {
 				securitySchemes: {
-
 					cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
 				},
 				schemas: {}, // routes with their own schemas

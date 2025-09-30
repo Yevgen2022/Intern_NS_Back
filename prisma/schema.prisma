@@ -50,7 +50,7 @@ model Session {
 model Creative {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   url          String
-  type         AdType   // Змінили з String на AdType
+  type         AdType   // Changed from String on AdType
   width        Int
   height       Int
   mime         String
@@ -69,9 +69,9 @@ model LineItem {
   cpmMin      Float
   cpmMax      Float
   geo         String[]
-  adType      AdType   @default(banner)  // Змінили з String на AdType
+  adType      AdType   @default(banner)  // Changed from String on AdType
   frequency   Int      @default(1)
-  status      Status   @default(active)  // Змінили з String на Status
+  status      Status   @default(active)  // Changed from String on Status
   creativeId  String   @db.ObjectId
   creative    Creative @relation(fields: [creativeId], references: [id])
   createdAt   DateTime @default(now())
@@ -82,6 +82,15 @@ model LineItem {
   @@map("line_items")
 }
 
+
+model ImpressionLog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  lineItemId  String   @db.ObjectId
+  userIp      String
+  timestamp   DateTime @default(now())
+
+  @@index([lineItemId, userIp, timestamp])
+}
 
 enum AdType {
   banner

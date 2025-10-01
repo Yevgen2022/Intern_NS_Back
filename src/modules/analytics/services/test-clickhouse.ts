@@ -1,7 +1,7 @@
 // test-clickhouse.ts
 
 import 'dotenv/config';
-import clickhouseClient from './src/config/clickhouse';
+import clickhouseClient from '../../../config/clickhouse';
 
 async function testConnection() {
     try {

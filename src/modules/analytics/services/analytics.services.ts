@@ -1,132 +1,161 @@
-// src/modules/analytics/services/analytics.service.ts
+import type { FastifyInstance } from "fastify";
+import { analyticsRepository } from "../repository/analytics.repository";
+import type {
+	AuctionEvent,
+	EventFilters,
+	EventRow,
+	SummaryFilters,
+	SummaryRow,
+} from "../types/analytics.types";
 
-import type { FastifyInstance } from 'fastify';
-import type { AnalyticsRepo } from '../repository/analytics.repository';
+const kState = Symbol("analyticsState");
 
-interface AuctionEvent {
-    event_id: string;
-    event_type: string;
-    timestamp: Date;
-    auction_id: string;
-    ad_unit_code: string;
-    bidder: string;
-    bid_cpm: number;
-    bid_currency?: string;
-    campaign_id?: string;
-    creative?: string;
-    geo_country?: string;
-    geo_city?: string;
-    device_type?: string;
-    browser?: string;
-    os?: string;
-    is_winner: number;
-    render_time?: number;
+type ServiceState = {
+	eventQueue: AuctionEvent[];
+	flushTimer: NodeJS.Timeout | null;
+	isFlushing: boolean;
+	totalProcessed: number;
+	flushCount: number;
+};
+
+const BATCH_SIZE = 100;
+const FLUSH_INTERVAL = 30_000;
+
+function ensureState(fastify: FastifyInstance): ServiceState {
+	// @ts-expect-error
+	if (!fastify[kState]) {
+		fastify.log.info("Analytics: Initializing state");
+		// @ts-expect-error
+		fastify[kState] = {
+			eventQueue: [],
+			flushTimer: null,
+			isFlushing: false,
+			totalProcessed: 0,
+			flushCount: 0,
+		} as ServiceState;
+		startFlushTimer(fastify);
+		fastify.log.info(
+			`Analytics Timer: Started (${FLUSH_INTERVAL / 1000}s interval, batch=${BATCH_SIZE})`,
+		);
+	}
+	// @ts-expect-error
+	return fastify[kState] as ServiceState;
 }
 
-export interface AnalyticsService {
-    saveEvent: (event: AuctionEvent) => Promise<void>;
-    getEvents: (filters: any) => Promise<any[]>;
-    getSummary: (filters: any) => Promise<any[]>;
-    forceFlush: () => Promise<void>;
-    shutdown: () => Promise<void>;
+function startFlushTimer(fastify: FastifyInstance) {
+	const state = ensureState(fastify);
+	if (state.flushTimer) {
+		fastify.log.warn("Analytics: Clearing existing timer");
+		clearInterval(state.flushTimer);
+	}
+	state.flushTimer = setInterval(() => {
+		fastify.log.info(
+			`Analytics Timer: Triggered (queue: ${state.eventQueue.length})`,
+		);
+		void flushEvents(fastify);
+	}, FLUSH_INTERVAL);
 }
 
-export function createAnalyticsService(
-    fastify: FastifyInstance,
-    repository: AnalyticsRepo
-): AnalyticsService {
-    let eventQueue: AuctionEvent[] = [];
-    const BATCH_SIZE = 100;
-    const FLUSH_INTERVAL = 30000;
-    let flushTimer: NodeJS.Timeout | null = null;
-    let isFlushing = false;
+async function flushEvents(fastify: FastifyInstance): Promise<void> {
+	const state = ensureState(fastify);
 
-    fastify.log.info('Analytics Service: Creating new instance');
+	if (state.isFlushing) {
+		fastify.log.warn("Analytics Flush: Already in progress - skipping");
+		return;
+	}
 
-    // Запуск таймера
-    const startFlushTimer = () => {
-        if (flushTimer) {
-            fastify.log.warn('Analytics: Clearing existing timer');
-            clearInterval(flushTimer);
-        }
+	if (state.eventQueue.length === 0) {
+		fastify.log.debug("Analytics Flush: Queue empty - skipping");
+		return;
+	}
 
-        flushTimer = setInterval(() => {
-            fastify.log.info(`Analytics Timer: Triggered (queue size: ${eventQueue.length})`);
-            flushEvents();
-        }, FLUSH_INTERVAL);
+	state.isFlushing = true;
+	state.flushCount++;
 
-        fastify.log.info(`Analytics Timer: Started with ${FLUSH_INTERVAL / 1000}s interval, batch size: ${BATCH_SIZE}`);
-    };
+	const eventsToFlush = [...state.eventQueue];
+	state.eventQueue = [];
 
-    // Запис подій в БД
-    const flushEvents = async (): Promise<void> => {
-        if (isFlushing) {
-            fastify.log.warn('Analytics Flush: Already in progress - skipping');
-            return;
-        }
+	fastify.log.info(
+		`Analytics Flush #${state.flushCount}: Starting (${eventsToFlush.length} events)`,
+	);
+	const startTime = Date.now();
 
-        if (eventQueue.length === 0) {
-            fastify.log.debug('Analytics Flush: Queue empty - skipping');
-            return;
-        }
+	try {
+		await analyticsRepository.insertEvents(fastify, eventsToFlush);
+		const duration = Date.now() - startTime;
+		state.totalProcessed += eventsToFlush.length;
 
-        isFlushing = true;
-
-        const eventsToFlush = [...eventQueue];
-        eventQueue = [];
-
-        fastify.log.info(`Analytics Flush: Starting - ${eventsToFlush.length} events from queue`);
-
-        try {
-            await repository.insertEvents(eventsToFlush);
-            fastify.log.info(`Analytics Flush: SUCCESS - ${eventsToFlush.length} events written to ClickHouse`);
-        } catch (error: any) {
-            fastify.log.error(`Analytics Flush: FAILED - ${error.message}`);
-            eventQueue.unshift(...eventsToFlush);
-            fastify.log.warn(`Analytics Flush: Restored ${eventsToFlush.length} events back to queue`);
-        } finally {
-            isFlushing = false;
-            fastify.log.debug(`Analytics Flush: Completed (queue now: ${eventQueue.length})`);
-        }
-    };
-
-    // Ініціалізація
-    startFlushTimer();
-
-    return {
-        saveEvent: async (event: AuctionEvent): Promise<void> => {
-            eventQueue.push(event);
-            fastify.log.info(`Analytics Queue: Added event (queue: ${eventQueue.length}/${BATCH_SIZE}, event_id: ${event.event_id})`);
-
-            if (eventQueue.length >= BATCH_SIZE) {
-                fastify.log.info('Analytics Queue: BATCH SIZE REACHED - triggering flush');
-                await flushEvents();
-            }
-        },
-
-        getEvents: async (filters: any): Promise<any[]> => {
-            fastify.log.info('Analytics: Fetching events with filters', filters);
-            return await repository.getEvents(filters);
-        },
-
-        getSummary: async (filters: any): Promise<any[]> => {
-            fastify.log.info('Analytics: Fetching summary with filters', filters);
-            return await repository.getSummary(filters);
-        },
-
-        forceFlush: async (): Promise<void> => {
-            fastify.log.info('Analytics: Force flush requested');
-            await flushEvents();
-        },
-
-        shutdown: async (): Promise<void> => {
-            fastify.log.info('Analytics Shutdown: Starting...');
-            if (flushTimer) {
-                clearInterval(flushTimer);
-                fastify.log.info('Analytics Shutdown: Timer cleared');
-            }
-            await flushEvents();
-            fastify.log.info('Analytics Shutdown: Complete');
-        },
-    };
+		fastify.log.info(
+			`Analytics Flush #${state.flushCount}: SUCCESS - ${eventsToFlush.length} events written (${duration}ms, total: ${state.totalProcessed})`,
+		);
+	} catch (err) {
+		const duration = Date.now() - startTime;
+		fastify.log.error(
+			{ err },
+			`Analytics Flush #${state.flushCount}: FAILED (${duration}ms) - restoring ${eventsToFlush.length} events to queue`,
+		);
+		state.eventQueue.unshift(...eventsToFlush);
+	} finally {
+		state.isFlushing = false;
+		fastify.log.debug(
+			`Analytics Flush: Completed (queue now: ${state.eventQueue.length})`,
+		);
+	}
 }
+
+export const analyticsService = {
+	saveEvent: async (
+		fastify: FastifyInstance,
+		event: AuctionEvent,
+	): Promise<void> => {
+		const state = ensureState(fastify);
+		const queueBefore = state.eventQueue.length;
+		state.eventQueue.push(event);
+
+		fastify.log.info(
+			`Analytics Queue: Event added (${queueBefore} → ${state.eventQueue.length}/${BATCH_SIZE}, id: ${event.event_id})`,
+		);
+
+		if (state.eventQueue.length >= BATCH_SIZE) {
+			fastify.log.info("Analytics Queue: BATCH SIZE REACHED - flushing");
+			await flushEvents(fastify);
+		}
+	},
+
+	getEvents: async (
+		fastify: FastifyInstance,
+		filters: EventFilters,
+	): Promise<EventRow[]> => {
+		fastify.log.info({ filters }, "Analytics: Fetching events");
+		const result = await analyticsRepository.getEvents(fastify, filters);
+		fastify.log.info(`Analytics: Found ${result.length} events`);
+		return result;
+	},
+
+	getSummary: async (
+		fastify: FastifyInstance,
+		filters: SummaryFilters,
+	): Promise<SummaryRow[]> => {
+		fastify.log.info({ filters }, "Analytics: Fetching summary");
+		const result = await analyticsRepository.getSummary(fastify, filters);
+		fastify.log.info(`Analytics: Summary generated (${result.length} rows)`);
+		return result;
+	},
+
+	shutdown: async (fastify: FastifyInstance): Promise<void> => {
+		const state = ensureState(fastify);
+		fastify.log.info(
+			`Analytics Shutdown: Starting (queue: ${state.eventQueue.length}, total processed: ${state.totalProcessed})`,
+		);
+
+		if (state.flushTimer) {
+			clearInterval(state.flushTimer);
+			fastify.log.info("Analytics Shutdown: Timer cleared");
+		}
+
+		await flushEvents(fastify);
+		fastify.log.info(
+			`Analytics Shutdown: Complete (${state.flushCount} total flushes)`,
+		);
+	},
+};

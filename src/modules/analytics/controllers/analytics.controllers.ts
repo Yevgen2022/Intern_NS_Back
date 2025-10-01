@@ -1,126 +1,141 @@
-import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { createAnalyticsService } from '../services/analytics.services';
-import { createAnalyticsRepo } from '../repository/analytics.repository';
-
-interface EventBody {
-    event_id: string;
-    event_type: string;
-    auction_id: string;
-    ad_unit_code: string;
-    bidder: string;
-    bid_cpm: number;
-    bid_currency?: string;
-    campaign_id?: string;
-    creative?: string;
-    geo_country?: string;
-    geo_city?: string;
-    device_type?: string;
-    browser?: string;
-    os?: string;
-    is_winner: number;
-    render_time?: number;
-}
-
-interface QueryParams {
-    startDate?: string;
-    endDate?: string;
-    bidder?: string;
-    limit?: string;
-}
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { analyticsService } from "../services/analytics.services";
+import type {
+	EventBody,
+	EventFilters,
+	QueryParams,
+	SummaryFilters,
+} from "../types/analytics.types";
 
 export function analyticsController(fastify: FastifyInstance) {
+	fastify.addHook("onClose", async (app) => {
+		await analyticsService.shutdown(app);
+	});
 
-    // Створюємо repository → service всередині controller
-    const repository = createAnalyticsRepo(fastify);
-    const service = createAnalyticsService(fastify, repository);
+	return {
+		saveEvent: async (
+			request: FastifyRequest<{ Body: EventBody }>,
+			reply: FastifyReply,
+		) => {
+			try {
+				const eventData = { ...request.body, timestamp: new Date() };
+				await analyticsService.saveEvent(fastify, eventData);
 
+				return reply.code(201).send({
+					success: true,
+					message: "Event saved successfully",
+				});
+			} catch (err) {
+				const error = err as Error & { code?: string };
+				if (error?.code === "ECONNREFUSED" || error?.code === "ENOTFOUND") {
+					throw fastify.httpErrors.badGateway("ClickHouse connection failed.");
+				}
 
-    // Graceful shutdown
-    fastify.addHook('onClose', async () => {
-        await service.shutdown();
-    });
+				fastify.log.error({ err }, "saveEvent failed");
+				throw fastify.httpErrors.internalServerError(
+					error?.message || "Internal Server Error",
+				);
+			}
+		},
 
-    return {
-        saveEvent: async (
-            request: FastifyRequest<{ Body: EventBody }>,
-            reply: FastifyReply
-        ) => {
-            try {
-                const eventData = {
-                    ...request.body,
-                    timestamp: new Date(),
-                };
+		getEvents: async (
+			request: FastifyRequest<{ Querystring: QueryParams }>,
+			reply: FastifyReply,
+		) => {
+			try {
+				const { startDate, endDate, bidder, limit } = request.query;
 
-                await service.saveEvent(eventData);
+				const start = startDate ? new Date(startDate) : undefined;
+				const end = endDate ? new Date(endDate) : undefined;
 
-                return reply.code(201).send({
-                    success: true,
-                    message: 'Event saved successfully',
-                });
-            } catch (error: any) {
-                request.log.error('Error saving event:', error);
-                return reply.code(500).send({
-                    success: false,
-                    error: error.message,
-                });
-            }
-        },
+				if (start && Number.isNaN(start.getTime())) {
+					throw fastify.httpErrors.badRequest("Invalid startDate");
+				}
+				if (end && Number.isNaN(end.getTime())) {
+					throw fastify.httpErrors.badRequest("Invalid endDate");
+				}
+				if (start && end && start > end) {
+					throw fastify.httpErrors.badRequest("startDate must be <= endDate");
+				}
 
-        getEvents: async (
-            request: FastifyRequest<{ Querystring: QueryParams }>,
-            reply: FastifyReply
-        ) => {
-            try {
-                const { startDate, endDate, bidder, limit } = request.query;
+				let lim = 100;
+				if (limit !== undefined) {
+					const n = parseInt(limit, 10);
+					if (!Number.isFinite(n) || n <= 0) {
+						throw fastify.httpErrors.badRequest("Invalid limit");
+					}
+					lim = n;
+				}
 
-                const filters = {
-                    startDate: startDate ? new Date(startDate) : undefined,
-                    endDate: endDate ? new Date(endDate) : undefined,
-                    bidder,
-                    limit: limit ? parseInt(limit) : 100,
-                };
+				const filters: EventFilters = {
+					startDate: start,
+					endDate: end,
+					bidder,
+					limit: lim,
+				};
 
-                const events = await service.getEvents(filters);
+				const events = await analyticsService.getEvents(fastify, filters);
 
-                return reply.send({
-                    success: true,
-                    data: events,
-                    count: events.length,
-                });
-            } catch (error: any) {
-                request.log.error('Error getting events:', error);
-                return reply.code(500).send({
-                    success: false,
-                    error: error.message,
-                });
-            }
-        },
+				return reply.send({
+					success: true,
+					data: events,
+					count: events.length,
+				});
+			} catch (err) {
+				const error = err as Error & { code?: string; statusCode?: number };
+				if (error?.statusCode) throw err;
 
-        getSummary: async (
-            request: FastifyRequest<{ Querystring: QueryParams }>,
-            reply: FastifyReply
-        ) => {
-            try {
-                const { startDate, endDate } = request.query;
+				if (error?.code === "ECONNREFUSED" || error?.code === "ENOTFOUND") {
+					throw fastify.httpErrors.badGateway("ClickHouse connection failed.");
+				}
 
-                const filters = {
-                    startDate: startDate ? new Date(startDate) : undefined,
-                    endDate: endDate ? new Date(endDate) : undefined,
-                };
+				fastify.log.error({ err }, "getEvents failed");
+				throw fastify.httpErrors.internalServerError(
+					error?.message || "Internal Server Error",
+				);
+			}
+		},
 
-                const summary = await service.getSummary(filters);
+		getSummary: async (
+			request: FastifyRequest<{ Querystring: QueryParams }>,
+			reply: FastifyReply,
+		) => {
+			try {
+				const { startDate, endDate } = request.query;
 
-                return reply.send({
-                    success: true,
-                    data: summary,
-                });
-            } catch (error: any) {
-                request.log.error('Error getting summary:', error);
-                return reply.code(500).send({
-                    success: false,
-                    error: error.message,
-                });
-            }
-        },
-    };
+				const start = startDate ? new Date(startDate) : undefined;
+				const end = endDate ? new Date(endDate) : undefined;
+
+				if (start && Number.isNaN(start.getTime())) {
+					throw fastify.httpErrors.badRequest("Invalid startDate");
+				}
+				if (end && Number.isNaN(end.getTime())) {
+					throw fastify.httpErrors.badRequest("Invalid endDate");
+				}
+				if (start && end && start > end) {
+					throw fastify.httpErrors.badRequest("startDate must be <= endDate");
+				}
+
+				const filters: SummaryFilters = { startDate: start, endDate: end };
+				const summary = await analyticsService.getSummary(fastify, filters);
+
+				return reply.send({
+					success: true,
+					data: summary,
+				});
+			} catch (err) {
+				const error = err as Error & { code?: string; statusCode?: number };
+				if (error?.statusCode) throw err;
+
+				if (error?.code === "ECONNREFUSED" || error?.code === "ENOTFOUND") {
+					throw fastify.httpErrors.badGateway("ClickHouse connection failed.");
+				}
+
+				fastify.log.error({ err }, "getSummary failed");
+				throw fastify.httpErrors.internalServerError(
+					error?.message || "Internal Server Error",
+				);
+			}
+		},
+	};
 }

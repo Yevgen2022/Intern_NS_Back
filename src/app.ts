@@ -5,10 +5,10 @@ import Fastify, { type FastifyServerOptions } from "fastify";
 import configPlugin from "./config";
 import { lineItemRoutes } from "./modules/AddServer/lineItem/routes/lineItem.routes";
 import { adServerRoutes } from "./modules/AddServer/server/routes/adServer.routes";
+import { analyticsRoutes } from "./modules/analytics/routes/analytics.routes";
 import { parseRoutes } from "./modules/articalParser/routes/artical.parser.route";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
-import { analyticsRoutes } from './modules/analytics/routes/analytics.routes';
 
 export type AppOptions = Partial<FastifyServerOptions>;
 
@@ -50,7 +50,7 @@ async function buildApp(options: AppOptions = {}) {
 	fastify.register(parseRoutes, { prefix: "/api" });
 	fastify.register(lineItemRoutes, { prefix: "/api" });
 	fastify.register(adServerRoutes, { prefix: "/api" });
-    fastify.register(analyticsRoutes, { prefix: '/api/analytics' });
+	fastify.register(analyticsRoutes, { prefix: "/api/analytics" });
 	return fastify;
 }
 

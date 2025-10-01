@@ -1,123 +1,89 @@
-// src/modules/analytics/repository/analytics.repository.ts
+import type { FastifyInstance } from "fastify";
+import type {
+	AuctionEvent,
+	EventFilters,
+	EventRow,
+	SummaryFilters,
+	SummaryRow,
+} from "../types/analytics.types";
 
-import type { FastifyInstance } from 'fastify';
+export const analyticsRepository = {
+	insertEvents: async (
+		fastify: FastifyInstance,
+		events: AuctionEvent[],
+	): Promise<void> => {
+		await fastify.clickhouse.insert({
+			table: "auction_events",
+			values: events,
+			format: "JSONEachRow",
+		});
+	},
 
-interface AuctionEvent {
-    event_id: string;
-    event_type: string;
-    timestamp: Date;
-    auction_id: string;
-    ad_unit_code: string;
-    bidder: string;
-    bid_cpm: number;
-    bid_currency?: string;
-    campaign_id?: string;
-    creative?: string;
-    geo_country?: string;
-    geo_city?: string;
-    device_type?: string;
-    browser?: string;
-    os?: string;
-    is_winner: number;
-    render_time?: number;
-}
+	getEvents: async (
+		fastify: FastifyInstance,
+		filters: EventFilters,
+	): Promise<EventRow[]> => {
+		const clickhouse = fastify.clickhouse;
+		const where: string[] = [];
 
-interface EventFilters {
-    startDate?: Date;
-    endDate?: Date;
-    bidder?: string;
-    limit?: number;
-}
+		if (filters.startDate)
+			where.push(`timestamp >= '${filters.startDate.toISOString()}'`);
+		if (filters.endDate)
+			where.push(`timestamp <= '${filters.endDate.toISOString()}'`);
+		if (filters.bidder) where.push(`bidder = '${filters.bidder}'`);
 
-interface SummaryFilters {
-    startDate?: Date;
-    endDate?: Date;
-}
+		const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 
-export interface AnalyticsRepo {
-    insertEvents: (events: AuctionEvent[]) => Promise<void>;
-    getEvents: (filters: EventFilters) => Promise<any[]>;
-    getSummary: (filters: SummaryFilters) => Promise<any[]>;
-}
+		const query = `
+            SELECT *
+            FROM auction_events
+            ${whereClause}
+            ORDER BY timestamp DESC
+            LIMIT ${filters.limit || 100}
+        `;
 
-export function createAnalyticsRepo(fastify: FastifyInstance): AnalyticsRepo {
-    const clickhouse = fastify.clickhouse;
+		const result = await clickhouse.query({
+			query,
+			format: "JSONEachRow",
+		});
 
-    return {
-        insertEvents: async (events: AuctionEvent[]): Promise<void> => {
-            await clickhouse.insert({
-                table: 'auction_events',
-                values: events,
-                format: 'JSONEachRow',
-            });
-        },
+		const data = await result.json();
+		return data as EventRow[];
+	},
 
-        getEvents: async (filters: EventFilters): Promise<any[]> => {
-            const whereConditions: string[] = [];
+	getSummary: async (
+		fastify: FastifyInstance,
+		filters: SummaryFilters,
+	): Promise<SummaryRow[]> => {
+		const clickhouse = fastify.clickhouse;
+		const where: string[] = [];
 
-            if (filters.startDate) {
-                whereConditions.push(`timestamp >= '${filters.startDate.toISOString()}'`);
-            }
-            if (filters.endDate) {
-                whereConditions.push(`timestamp <= '${filters.endDate.toISOString()}'`);
-            }
-            if (filters.bidder) {
-                whereConditions.push(`bidder = '${filters.bidder}'`);
-            }
+		if (filters.startDate)
+			where.push(`timestamp >= '${filters.startDate.toISOString()}'`);
+		if (filters.endDate)
+			where.push(`timestamp <= '${filters.endDate.toISOString()}'`);
 
-            const whereClause = whereConditions.length > 0
-                ? `WHERE ${whereConditions.join(' AND ')}`
-                : '';
+		const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 
-            const query = `
-                SELECT *
-                FROM auction_events
-                ${whereClause}
-                ORDER BY timestamp DESC
-                LIMIT ${filters.limit || 100}
-            `;
+		const query = `
+            SELECT
+                bidder,
+                count() as total_bids,
+                sum(is_winner) as wins,
+                avg(bid_cpm) as avg_cpm,
+                max(bid_cpm) as max_cpm
+            FROM auction_events
+                     ${whereClause}
+            GROUP BY bidder
+            ORDER BY total_bids DESC
+        `;
 
-            const result = await clickhouse.query({
-                query,
-                format: 'JSONEachRow',
-            });
+		const result = await clickhouse.query({
+			query,
+			format: "JSONEachRow",
+		});
 
-            return await result.json();
-        },
-
-        getSummary: async (filters: SummaryFilters): Promise<any[]> => {
-            const whereConditions: string[] = [];
-
-            if (filters.startDate) {
-                whereConditions.push(`timestamp >= '${filters.startDate.toISOString()}'`);
-            }
-            if (filters.endDate) {
-                whereConditions.push(`timestamp <= '${filters.endDate.toISOString()}'`);
-            }
-
-            const whereClause = whereConditions.length > 0
-                ? `WHERE ${whereConditions.join(' AND ')}`
-                : '';
-
-            const query = `
-                SELECT
-                    bidder,
-                    count() as total_bids,
-                    sum(is_winner) as wins,
-                    avg(bid_cpm) as avg_cpm,
-                    max(bid_cpm) as max_cpm
-                FROM auction_events
-                ${whereClause}
-                GROUP BY bidder
-                ORDER BY total_bids DESC
-            `;
-
-            const result = await clickhouse.query({
-                query,
-                format: 'JSONEachRow',
-            });
-
-            return await result.json();
-        },
-    };
-}
+		const data = await result.json(); // First we get the data
+		return data as SummaryRow[]; // Then we reduce to the type
+	},
+};

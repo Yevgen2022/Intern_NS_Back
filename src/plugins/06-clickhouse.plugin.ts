@@ -1,8 +1,7 @@
-// src/plugins/clickhouse.plugin.ts
 
 import fp from 'fastify-plugin';
 import { createClient, ClickHouseClient } from '@clickhouse/client';
-import { FastifyPluginAsync } from 'fastify';
+// import type { FastifyPluginAsync } from 'fastify';
 
 declare module 'fastify' {
     interface FastifyInstance {
@@ -10,37 +9,42 @@ declare module 'fastify' {
     }
 }
 
-const clickhousePlugin: FastifyPluginAsync = async (fastify, options) => {
-    const clickhouseClient = createClient({
-        url: process.env.CLICKHOUSE_URL || '',
-        username: process.env.CLICKHOUSE_USER || 'default',
-        password: process.env.CLICKHOUSE_PASSWORD || '',
-        database: process.env.CLICKHOUSE_DATABASE || 'default',
-    });
+const pluginName = 'clickhouse-plugin';
 
-    // Перевірка підключення
-    try {
-        const result = await clickhouseClient.query({
-            query: 'SELECT 1',
-            format: 'JSONEachRow',
+export default fp(
+    async (fastify) => {
+        fastify.log.info('ClickHouse Plugin: Loading...');
+
+        const clickhouseClient = createClient({
+            url: process.env.CLICKHOUSE_URL || '',
+            username: process.env.CLICKHOUSE_USER || 'default',
+            password: process.env.CLICKHOUSE_PASSWORD || '',
+            database: process.env.CLICKHOUSE_DATABASE || 'default',
         });
-        await result.json();
-        fastify.log.info('ClickHouse connected successfully');
-    } catch (error) {
-        fastify.log.error('ClickHouse connection failed:', error);
-        throw error;
-    }
 
-    fastify.decorate('clickhouse', clickhouseClient);
+        // Перевірка підключення
+        try {
+            const result = await clickhouseClient.query({
+                query: 'SELECT 1',
+                format: 'JSONEachRow',
+            });
+            await result.json();
+            fastify.log.info('ClickHouse Plugin: Connected successfully');
+        } catch (error) {
+            fastify.log.error('ClickHouse Plugin: Connection failed', error);
+            throw error;
+        }
 
-    fastify.addHook('onClose', async () => {
-        await clickhouseClient.close();
-        fastify.log.info('ClickHouse connection closed');
-    });
+        // Декорація fastify
+        fastify.decorate('clickhouse', clickhouseClient);
 
-    fastify.pluginLoaded('clickhouse');
-};
+        // Graceful shutdown
+        fastify.addHook('onClose', async () => {
+            await clickhouseClient.close();
+            fastify.log.info('ClickHouse Plugin: Connection closed');
+        });
 
-export default fp(clickhousePlugin, {
-    name: 'clickhouse-plugin',
-});
+        fastify.pluginLoaded?.(pluginName);
+    },
+    { name: pluginName },
+);

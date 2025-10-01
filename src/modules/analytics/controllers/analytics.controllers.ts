@@ -1,7 +1,6 @@
-// src/modules/analytics/controllers/analytics.controllers.ts
-
-import { FastifyRequest, FastifyReply } from 'fastify';
-import analyticsService from '../services/analytics.services';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { createAnalyticsService } from '../services/analytics.services';
+import { createAnalyticsRepo } from '../repository/analytics.repository';
 
 interface EventBody {
     event_id: string;
@@ -29,85 +28,99 @@ interface QueryParams {
     limit?: string;
 }
 
-class AnalyticsController {
-    async saveEventController(
-        request: FastifyRequest<{ Body: EventBody }>,
-        reply: FastifyReply
-    ) {
-        try {
-            const eventData = {
-                ...request.body,
-                timestamp: new Date(),
-            };
+export function analyticsController(fastify: FastifyInstance) {
 
-            await analyticsService.saveEvent(eventData);
+    // Створюємо repository → service всередині controller
+    const repository = createAnalyticsRepo(fastify);
+    const service = createAnalyticsService(fastify, repository);
 
-            return reply.code(201).send({
-                success: true,
-                message: 'Event saved successfully',
-            });
-        } catch (error: any) {
-            return reply.code(500).send({
-                success: false,
-                error: error.message,
-            });
-        }
-    }
 
-    async getEventsController(
-        request: FastifyRequest<{ Querystring: QueryParams }>,
-        reply: FastifyReply
-    ) {
-        try {
-            const { startDate, endDate, bidder, limit } = request.query;
+    // Graceful shutdown
+    fastify.addHook('onClose', async () => {
+        await service.shutdown();
+    });
 
-            const filters = {
-                startDate: startDate ? new Date(startDate) : undefined,
-                endDate: endDate ? new Date(endDate) : undefined,
-                bidder,
-                limit: limit ? parseInt(limit) : 100,
-            };
+    return {
+        saveEvent: async (
+            request: FastifyRequest<{ Body: EventBody }>,
+            reply: FastifyReply
+        ) => {
+            try {
+                const eventData = {
+                    ...request.body,
+                    timestamp: new Date(),
+                };
 
-            const events = await analyticsService.getEvents(filters);
+                await service.saveEvent(eventData);
 
-            return reply.send({
-                success: true,
-                data: events,
-                count: events.length,
-            });
-        } catch (error: any) {
-            return reply.code(500).send({
-                success: false,
-                error: error.message,
-            });
-        }
-    }
+                return reply.code(201).send({
+                    success: true,
+                    message: 'Event saved successfully',
+                });
+            } catch (error: any) {
+                request.log.error('Error saving event:', error);
+                return reply.code(500).send({
+                    success: false,
+                    error: error.message,
+                });
+            }
+        },
 
-    async getSummaryController(
-        request: FastifyRequest<{ Querystring: QueryParams }>,
-        reply: FastifyReply
-    ) {
-        try {
-            const { startDate, endDate } = request.query;
+        getEvents: async (
+            request: FastifyRequest<{ Querystring: QueryParams }>,
+            reply: FastifyReply
+        ) => {
+            try {
+                const { startDate, endDate, bidder, limit } = request.query;
 
-            const filters = {
-                startDate: startDate ? new Date(startDate) : undefined,
-                endDate: endDate ? new Date(endDate) : undefined,
-            };
+                const filters = {
+                    startDate: startDate ? new Date(startDate) : undefined,
+                    endDate: endDate ? new Date(endDate) : undefined,
+                    bidder,
+                    limit: limit ? parseInt(limit) : 100,
+                };
 
-            const summary = await analyticsService.getSummary(filters);
+                const events = await service.getEvents(filters);
 
-            return reply.send({
-                success: true,
-                data: summary,
-            });
-        } catch (error: any) {
-            return reply.code(500).send({
-                success: false,
-                error: error.message,
-            });
-        }
-    }
+                return reply.send({
+                    success: true,
+                    data: events,
+                    count: events.length,
+                });
+            } catch (error: any) {
+                request.log.error('Error getting events:', error);
+                return reply.code(500).send({
+                    success: false,
+                    error: error.message,
+                });
+            }
+        },
+
+        getSummary: async (
+            request: FastifyRequest<{ Querystring: QueryParams }>,
+            reply: FastifyReply
+        ) => {
+            try {
+                const { startDate, endDate } = request.query;
+
+                const filters = {
+                    startDate: startDate ? new Date(startDate) : undefined,
+                    endDate: endDate ? new Date(endDate) : undefined,
+                };
+
+                const summary = await service.getSummary(filters);
+
+                return reply.send({
+                    success: true,
+                    data: summary,
+                });
+            } catch (error: any) {
+                request.log.error('Error getting summary:', error);
+                return reply.code(500).send({
+                    success: false,
+                    error: error.message,
+                });
+            }
+        },
+    };
 }
-
-export default new AnalyticsController();

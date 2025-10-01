@@ -8,7 +8,7 @@ import { adServerRoutes } from "./modules/AddServer/server/routes/adServer.route
 import { parseRoutes } from "./modules/articalParser/routes/artical.parser.route";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
-import analyticsRoutes from './modules/analytics/routes/analytics.routes';
+import { analyticsRoutes } from './modules/analytics/routes/analytics.routes';
 
 export type AppOptions = Partial<FastifyServerOptions>;
 

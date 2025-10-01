@@ -1,81 +1,63 @@
-import { FastifyInstance } from 'fastify';
-import controller from '../controllers/analytics.controllers';
-import analyticsService from '../services/analytics.services';
+import type { JsonSchemaToTsProvider } from "@fastify/type-provider-json-schema-to-ts";
+import type { FastifyInstance } from 'fastify';
+import { analyticsController } from '../controllers/analytics.controllers';
 
-const saveEventBody = {
-    type: 'object',
-    required: ['event_id', 'event_type', 'auction_id', 'ad_unit_code', 'bidder', 'bid_cpm', 'is_winner'],
-    properties: {
-        event_id: { type: 'string' },
-        event_type: { type: 'string' },
-        auction_id: { type: 'string' },
-        ad_unit_code: { type: 'string' },
-        bidder: { type: 'string' },
-        bid_cpm: { type: 'number' },
-        bid_currency: { type: 'string' },
-        campaign_id: { type: 'string' },
-        creative: { type: 'string' },
-        geo_country: { type: 'string' },
-        geo_city: { type: 'string' },
-        device_type: { type: 'string' },
-        browser: { type: 'string' },
-        os: { type: 'string' },
-        is_winner: { type: 'number' },
-        render_time: { type: 'number' },
-    },
-} as const;
+export async function analyticsRoutes(fastify: FastifyInstance) {
+    const route = fastify.withTypeProvider<JsonSchemaToTsProvider>();
+    const controller = analyticsController(fastify);
 
-const saveEventResponse = {
-    type: 'object',
-    properties: {
-        success: { type: 'boolean' },
-        message: { type: 'string' },
-    },
-} as const;
-
-const getEventsResponse = {
-    type: 'object',
-    properties: {
-        success: { type: 'boolean' },
-        data: { type: 'array' },
-        count: { type: 'number' },
-    },
-} as const;
-
-export default async function analyticsRoutes(fastify: FastifyInstance) {
-    // Ініціалізуємо сервіс з клієнтом
-    analyticsService.initialize(fastify.clickhouse);
-
-    const route = fastify;
-
+    // POST /api/analytics/events - save auction event
     route.post(
         '/events',
         {
             schema: {
-                body: saveEventBody,
-                response: { 201: saveEventResponse },
+                tags: ['analytics'],
+                summary: 'Save auction event',
+                description: 'Adds auction event to batch queue. Events are written to ClickHouse in batches of 100 or every 30 seconds.',
             },
         },
-        controller.saveEventController
+        controller.saveEvent
     );
 
+    // GET /api/analytics/events - get events with filters
     route.get(
         '/events',
         {
             schema: {
-                response: { 200: getEventsResponse },
+                tags: ['analytics'],
+                summary: 'Get auction events',
+                description: 'Retrieves auction events with optional filters: startDate, endDate, bidder, limit.',
+                querystring: {
+                    type: 'object',
+                    properties: {
+                        startDate: { type: 'string', format: 'date-time' },
+                        endDate: { type: 'string', format: 'date-time' },
+                        bidder: { type: 'string' },
+                        limit: { type: 'integer', default: 100 },
+                    },
+                },
             },
         },
-        controller.getEventsController
+        controller.getEvents
     );
 
+    // GET /api/analytics/summary - get aggregated statistics
     route.get(
         '/summary',
         {
             schema: {
-                response: { 200: getEventsResponse },
+                tags: ['analytics'],
+                summary: 'Get aggregated statistics',
+                description: 'Returns aggregated stats by bidder: total bids, wins, avg CPM, max CPM.',
+                querystring: {
+                    type: 'object',
+                    properties: {
+                        startDate: { type: 'string', format: 'date-time' },
+                        endDate: { type: 'string', format: 'date-time' },
+                    },
+                },
             },
         },
-        controller.getSummaryController
+        controller.getSummary
     );
 }

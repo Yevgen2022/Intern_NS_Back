@@ -1,4 +1,7 @@
-import type { ClickHouseClient } from '@clickhouse/client';
+// src/modules/analytics/services/analytics.service.ts
+
+import type { FastifyInstance } from 'fastify';
+import type { AnalyticsRepo } from '../repository/analytics.repository';
 
 interface AuctionEvent {
     event_id: string;
@@ -20,137 +23,110 @@ interface AuctionEvent {
     render_time?: number;
 }
 
-class AnalyticsService {
-    private eventQueue: AuctionEvent[] = [];
-    private readonly BATCH_SIZE = 100;
-    private readonly FLUSH_INTERVAL = 30000;
-    private flushTimer: NodeJS.Timeout | null = null;
-    private clickhouseClient: ClickHouseClient | null = null; // ✅ ДОДАНО
-
-    // ✅ ДОДАНО метод initialize
-    initialize(client: ClickHouseClient) {
-        this.clickhouseClient = client;
-        this.startFlushTimer();
-    }
-
-    private startFlushTimer() {
-        this.flushTimer = setInterval(() => {
-            this.flushEvents();
-        }, this.FLUSH_INTERVAL);
-    }
-
-    async saveEvent(event: AuctionEvent): Promise<void> {
-        this.eventQueue.push(event);
-        console.log(`📊 В черзі: ${this.eventQueue.length} подій`);
-
-        if (this.eventQueue.length >= this.BATCH_SIZE) {
-            await this.flushEvents();
-        }
-    }
-
-    private async flushEvents(): Promise<void> {
-        if (this.eventQueue.length === 0 || !this.clickhouseClient) return; // ✅ ДОДАНО перевірку
-
-        const eventsToFlush = [...this.eventQueue];
-        this.eventQueue = [];
-
-        try {
-            await this.clickhouseClient.insert({
-                table: 'auction_events',
-                values: eventsToFlush,
-                format: 'JSONEachRow',
-            });
-
-            console.log(`✅ Записано ${eventsToFlush.length} подій в ClickHouse`);
-        } catch (error: any) {
-            console.error('❌ Помилка запису подій:', error.message);
-            this.eventQueue.unshift(...eventsToFlush);
-        }
-    }
-
-    async getEvents(filters: {
-        startDate?: Date;
-        endDate?: Date;
-        bidder?: string;
-        limit?: number;
-    }): Promise<any[]> {
-        if (!this.clickhouseClient) throw new Error('ClickHouse not initialized'); // ✅ ДОДАНО
-
-        let whereConditions: string[] = [];
-
-        if (filters.startDate) {
-            whereConditions.push(`timestamp >= '${filters.startDate.toISOString()}'`);
-        }
-        if (filters.endDate) {
-            whereConditions.push(`timestamp <= '${filters.endDate.toISOString()}'`);
-        }
-        if (filters.bidder) {
-            whereConditions.push(`bidder = '${filters.bidder}'`);
-        }
-
-        const whereClause = whereConditions.length > 0
-            ? `WHERE ${whereConditions.join(' AND ')}`
-            : '';
-
-        const query = `
-            SELECT *
-            FROM auction_events
-                     ${whereClause}
-            ORDER BY timestamp DESC
-                LIMIT ${filters.limit || 100}
-        `;
-
-        const result = await this.clickhouseClient.query({
-            query,
-            format: 'JSONEachRow',
-        });
-
-        return await result.json();
-    }
-
-    async getSummary(filters: {
-        startDate?: Date;
-        endDate?: Date;
-    }): Promise<any> {
-        if (!this.clickhouseClient) throw new Error('ClickHouse not initialized'); // ✅ ДОДАНО
-
-        let whereConditions: string[] = [];
-
-        if (filters.startDate) {
-            whereConditions.push(`timestamp >= '${filters.startDate.toISOString()}'`);
-        }
-        if (filters.endDate) {
-            whereConditions.push(`timestamp <= '${filters.endDate.toISOString()}'`);
-        }
-
-        const whereClause = whereConditions.length > 0
-            ? `WHERE ${whereConditions.join(' AND ')}`
-            : '';
-
-        const query = `
-      SELECT 
-        bidder,
-        count() as total_bids,
-        sum(is_winner) as wins,
-        avg(bid_cpm) as avg_cpm,
-        max(bid_cpm) as max_cpm
-      FROM auction_events
-      ${whereClause}
-      GROUP BY bidder
-      ORDER BY total_bids DESC
-    `;
-
-        const result = await this.clickhouseClient.query({
-            query,
-            format: 'JSONEachRow',
-        });
-
-        return await result.json();
-    }
-
-    async forceFlush(): Promise<void> {
-        await this.flushEvents();
-    }
+export interface AnalyticsService {
+    saveEvent: (event: AuctionEvent) => Promise<void>;
+    getEvents: (filters: any) => Promise<any[]>;
+    getSummary: (filters: any) => Promise<any[]>;
+    forceFlush: () => Promise<void>;
+    shutdown: () => Promise<void>;
 }
 
-export default new AnalyticsService();
+export function createAnalyticsService(
+    fastify: FastifyInstance,
+    repository: AnalyticsRepo
+): AnalyticsService {
+    let eventQueue: AuctionEvent[] = [];
+    const BATCH_SIZE = 100;
+    const FLUSH_INTERVAL = 30000;
+    let flushTimer: NodeJS.Timeout | null = null;
+    let isFlushing = false;
+
+    fastify.log.info('Analytics Service: Creating new instance');
+
+    // Запуск таймера
+    const startFlushTimer = () => {
+        if (flushTimer) {
+            fastify.log.warn('Analytics: Clearing existing timer');
+            clearInterval(flushTimer);
+        }
+
+        flushTimer = setInterval(() => {
+            fastify.log.info(`Analytics Timer: Triggered (queue size: ${eventQueue.length})`);
+            flushEvents();
+        }, FLUSH_INTERVAL);
+
+        fastify.log.info(`Analytics Timer: Started with ${FLUSH_INTERVAL / 1000}s interval, batch size: ${BATCH_SIZE}`);
+    };
+
+    // Запис подій в БД
+    const flushEvents = async (): Promise<void> => {
+        if (isFlushing) {
+            fastify.log.warn('Analytics Flush: Already in progress - skipping');
+            return;
+        }
+
+        if (eventQueue.length === 0) {
+            fastify.log.debug('Analytics Flush: Queue empty - skipping');
+            return;
+        }
+
+        isFlushing = true;
+
+        const eventsToFlush = [...eventQueue];
+        eventQueue = [];
+
+        fastify.log.info(`Analytics Flush: Starting - ${eventsToFlush.length} events from queue`);
+
+        try {
+            await repository.insertEvents(eventsToFlush);
+            fastify.log.info(`Analytics Flush: SUCCESS - ${eventsToFlush.length} events written to ClickHouse`);
+        } catch (error: any) {
+            fastify.log.error(`Analytics Flush: FAILED - ${error.message}`);
+            eventQueue.unshift(...eventsToFlush);
+            fastify.log.warn(`Analytics Flush: Restored ${eventsToFlush.length} events back to queue`);
+        } finally {
+            isFlushing = false;
+            fastify.log.debug(`Analytics Flush: Completed (queue now: ${eventQueue.length})`);
+        }
+    };
+
+    // Ініціалізація
+    startFlushTimer();
+
+    return {
+        saveEvent: async (event: AuctionEvent): Promise<void> => {
+            eventQueue.push(event);
+            fastify.log.info(`Analytics Queue: Added event (queue: ${eventQueue.length}/${BATCH_SIZE}, event_id: ${event.event_id})`);
+
+            if (eventQueue.length >= BATCH_SIZE) {
+                fastify.log.info('Analytics Queue: BATCH SIZE REACHED - triggering flush');
+                await flushEvents();
+            }
+        },
+
+        getEvents: async (filters: any): Promise<any[]> => {
+            fastify.log.info('Analytics: Fetching events with filters', filters);
+            return await repository.getEvents(filters);
+        },
+
+        getSummary: async (filters: any): Promise<any[]> => {
+            fastify.log.info('Analytics: Fetching summary with filters', filters);
+            return await repository.getSummary(filters);
+        },
+
+        forceFlush: async (): Promise<void> => {
+            fastify.log.info('Analytics: Force flush requested');
+            await flushEvents();
+        },
+
+        shutdown: async (): Promise<void> => {
+            fastify.log.info('Analytics Shutdown: Starting...');
+            if (flushTimer) {
+                clearInterval(flushTimer);
+                fastify.log.info('Analytics Shutdown: Timer cleared');
+            }
+            await flushEvents();
+            fastify.log.info('Analytics Shutdown: Complete');
+        },
+    };
+}

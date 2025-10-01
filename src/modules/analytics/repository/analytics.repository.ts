@@ -95,9 +95,7 @@ export const analyticsRepository = {
 				.replace("Z", "");
 		}
 
-        if (filters.bidder)    where.push(`bidder = '${filters.bidder}'`);
-
-
+		if (filters.bidder) where.push(`bidder = '${filters.bidder}'`);
 
 		const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 

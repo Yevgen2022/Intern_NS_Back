@@ -101,7 +101,7 @@ export function analyticsController(fastify: FastifyInstance) {
 			reply: FastifyReply,
 		) => {
 			try {
-				const { startDate, endDate } = request.query;
+				const { startDate, endDate, bidder } = request.query;
 
 				const start = startDate ? new Date(startDate) : undefined;
 				const end = endDate ? new Date(endDate) : undefined;
@@ -116,7 +116,7 @@ export function analyticsController(fastify: FastifyInstance) {
 					throw fastify.httpErrors.badRequest("startDate must be <= endDate");
 				}
 
-				const filters: SummaryFilters = { startDate: start, endDate: end };
+				const filters: SummaryFilters = { startDate: start, endDate: end, bidder };
 				const summary = await analyticsService.getSummary(fastify, filters);
 
 				return reply.send({

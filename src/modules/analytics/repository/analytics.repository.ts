@@ -25,45 +25,40 @@ export const analyticsRepository = {
 	): Promise<EventRow[]> => {
 		const clickhouse = fastify.clickhouse;
 		const where: string[] = [];
-		const queryParams: Record<string, unknown> = {};
 
 		if (filters.startDate) {
-			where.push("timestamp >= {startDate: DateTime}");
-			queryParams.startDate = filters.startDate
+			const startDateStr = filters.startDate
 				.toISOString()
-				.replace("T", " ")
-				.replace("Z", "");
+				.slice(0, 19)
+				.replace("T", " ");
+			where.push(`timestamp >= toDateTime('${startDateStr}')`);
 		}
 
 		if (filters.endDate) {
-			where.push("timestamp <= {endDate: DateTime}");
-			queryParams.endDate = filters.endDate
+			const endDateStr = filters.endDate
 				.toISOString()
-				.replace("T", " ")
-				.replace("Z", "");
+				.slice(0, 19)
+				.replace("T", " ");
+			where.push(`timestamp <= toDateTime('${endDateStr}')`);
 		}
 
 		if (filters.bidder) {
-			where.push("bidder = {bidder: String}");
-			queryParams.bidder = filters.bidder;
+			where.push(`bidder = '${filters.bidder}'`);
 		}
 
 		const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-
-		// Limit always present (default 100)
-		queryParams.limit = filters.limit || 100;
+		const limit = filters.limit || 100;
 
 		const query = `
-            SELECT *
-            FROM auction_events
-            ${whereClause}
-            ORDER BY timestamp DESC
-            LIMIT {limit: UInt32}
-        `;
+        SELECT *
+        FROM auction_events
+        ${whereClause}
+        ORDER BY timestamp DESC
+        LIMIT ${limit}
+    `;
 
 		const result = await clickhouse.query({
 			query,
-			query_params: queryParams,
 			format: "JSONEachRow",
 		});
 
@@ -77,45 +72,45 @@ export const analyticsRepository = {
 	): Promise<SummaryRow[]> => {
 		const clickhouse = fastify.clickhouse;
 		const where: string[] = [];
-		const queryParams: Record<string, unknown> = {};
 
 		if (filters.startDate) {
-			where.push("timestamp >= {startDate: DateTime}");
-			queryParams.startDate = filters.startDate
+			const startDateStr = filters.startDate
 				.toISOString()
-				.replace("T", " ")
-				.replace("Z", "");
+				.slice(0, 19)
+				.replace("T", " ");
+			where.push(`timestamp >= toDateTime('${startDateStr}')`);
 		}
 
 		if (filters.endDate) {
-			where.push("timestamp <= {endDate: DateTime}");
-			queryParams.endDate = filters.endDate
+			const endDateStr = filters.endDate
 				.toISOString()
-				.replace("T", " ")
-				.replace("Z", "");
+				.slice(0, 19)
+				.replace("T", " ");
+			where.push(`timestamp <= toDateTime('${endDateStr}')`);
 		}
 
-		if (filters.bidder) where.push(`bidder = '${filters.bidder}'`);
+		if (filters.bidder) {
+			where.push(`bidder = '${filters.bidder}'`);
+		}
 
 		const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
 
 		const query = `
-            SELECT
-                bidder,
-                count() as total_bids,
-                sum(is_winner) as wins,
-                round(avg(bid_cpm), 2) as avg_cpm,
-                round(max(bid_cpm), 2) as max_cpm,
-                round(min(bid_cpm), 2) as min_cpm
-            FROM auction_events
-            ${whereClause}
-            GROUP BY bidder
-            ORDER BY total_bids DESC
-        `;
+        SELECT
+            bidder,
+            count() as total_bids,
+            sum(is_winner) as wins,
+            round(avg(bid_cpm), 2) as avg_cpm,
+            round(min(bid_cpm), 2) as min_cpm,
+            round(max(bid_cpm), 2) as max_cpm
+        FROM auction_events
+        ${whereClause}
+        GROUP BY bidder
+        ORDER BY total_bids DESC
+    `;
 
 		const result = await clickhouse.query({
 			query,
-			query_params: queryParams,
 			format: "JSONEachRow",
 		});
 

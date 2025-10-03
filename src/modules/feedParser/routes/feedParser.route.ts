@@ -1,4 +1,4 @@
-// modules/feed/routes.ts
+// modules/feed/lineItem.routes.ts
 import type { JsonSchemaToTsProvider } from "@fastify/type-provider-json-schema-to-ts";
 import type { FastifyInstance } from "fastify";
 import { getFeedDataController } from "../controller/feed.controller";

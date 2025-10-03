@@ -1,13 +1,13 @@
 import type { JsonSchemaToTsProvider } from "@fastify/type-provider-json-schema-to-ts";
 import type { FastifyInstance } from "fastify";
 import { analyticsController } from "../controllers/analytics.controllers";
-import { getEventsSchema, getSummarySchema } from "../schemas/analytics.scemas";
+import { getEventsSchema } from "../schemas/analytics.scemas";
 
 export async function analyticsRoutes(fastify: FastifyInstance) {
 	const route = fastify.withTypeProvider<JsonSchemaToTsProvider>();
 	const controller = analyticsController(fastify);
 
-	// POST /api/analytics/events - save auction event
+	// 1) events: cache and flush in ClickHouse in batches
 	route.post(
 		"/events",
 		{
@@ -21,17 +21,9 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
 		controller.saveEvent,
 	);
 
-	// GET /api/analytics/events - get events with filters
+	// 2) The only read route.
+	//    Depending on the `view` query parameter, returns either raw rows or a summary aggregation.
 	route.get("/events", { schema: getEventsSchema }, controller.getEvents);
 
-	// GET /api/analytics/summary - get aggregated statistics
-	//This route returns aggregated statistics by bidders
-	// (how many bids, how many wins, average CPM, etc.)
-	route.get(
-		"/summary",
-		{
-			schema: getSummarySchema,
-		},
-		controller.getSummary,
-	);
+	// route.get("/summary", { schema: getSummaryOnlyForBackCompatSchema }, controller.getSummary);
 }

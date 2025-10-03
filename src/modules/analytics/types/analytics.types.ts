@@ -1,6 +1,4 @@
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// EventBody - what comes from the frontend (POST /api/analytics/events)
+// Body from frontend
 export interface EventBody {
 	event_id: string;
 	event_type: string;
@@ -10,62 +8,28 @@ export interface EventBody {
 	bid_cpm: number;
 	is_winner: number;
 
-	// Optional fields
 	bid_currency?: string;
 	campaign_id?: string;
 	creative_id?: string;
-
-	// Geo data
 	geo_country?: string;
 	geo_city?: string;
-
-	// Device/Browser data
 	device_type?: string;
 	browser?: string;
 	os?: string;
 	user_agent?: string;
-
-	// Додаткові метрики
 	render_time?: number;
 	ad_unit_size?: string;
 	page_url?: string;
 }
 
-// AuctionEvent - which is stored в ClickHouse (EventBody + timestamp)
-export interface AuctionEvent {
-	event_id: string;
-	event_type: string;
+// I write in ClickHouse (Date instead of string for timestamp)
+export interface AuctionEvent extends EventBody {
 	timestamp: Date;
-	auction_id: string;
-	ad_unit_code: string;
-	bidder: string;
-	bid_cpm: number;
-	is_winner: number;
-
-	// Optional fields
-	bid_currency?: string;
-	campaign_id?: string;
-	creative_id?: string;
-
-	// Geo data
-	geo_country?: string;
-	geo_city?: string;
-
-	// Device/Browser data
-	device_type?: string;
-	browser?: string;
-	os?: string;
-	user_agent?: string;
-
-	// Additional metrics
-	render_time?: number;
-	ad_unit_size?: string;
-	page_url?: string;
 }
 
-//EventRow - what is returned from GET /events (minimum set for UI)
+// Minimum set for для UI (raw view)
 export interface EventRow {
-	timestamp: string; // ISO string
+	timestamp: string;
 	bidder: string;
 	bid_cpm: number;
 	is_winner: number;
@@ -73,47 +37,86 @@ export interface EventRow {
 	event_type: string;
 	ad_unit_code: string;
 
-	// Optional (if needed on the front)
-	min_cpm?: number;
-	max_cpm?: number;
+	// optional
+	bid_currency?: string;
 	geo_country?: string;
 	creative_id?: string;
+	ad_unit_size?: string;
+	page_url?: string;
 }
 
-//SummaryRow - агрегована статистика по bidder
+// summary by bidder (view=summary)
 export interface SummaryRow {
 	bidder: string;
-	total_bids: string; // ClickHouse count() returns string
-	wins: string; // ClickHouse sum() returns string
+	total_bids: string; // ClickHouse повертає string
+	wins: string;
 	avg_cpm: number;
 	min_cpm: number;
 	max_cpm: number;
 }
 
-//EventFilters - filters for GET /events
+// filters raw-подій
 export interface EventFilters {
 	startDate?: Date;
 	endDate?: Date;
 	bidder?: string;
+
+	event_type?: string;
+	ad_unit_code?: string;
+	ad_unit_size?: string;
+	is_winner?: "0" | "1";
+	min_cpm?: string;
+	max_cpm?: string;
+	bid_currency?: string;
+	device_type?: string;
+	browser?: string;
+	os?: string;
+	geo_country?: string;
+	geo_city?: string;
+	campaign_id?: string;
+	creative_id?: string;
+
 	limit?: number;
+	offset?: number;
+	order_by?: string; // whitelist у service/repo
+	order_dir?: "asc" | "desc";
 }
 
-//SummaryFilters - filters for GET /summary
+// filters summary
 export interface SummaryFilters {
 	startDate?: Date;
 	endDate?: Date;
 	bidder?: string;
 }
 
-//QueryParams - what comes in the query string (all as string)
+// what comes in the query (all as a string)
 export interface QueryParams {
 	startDate?: string;
 	endDate?: string;
 	bidder?: string;
+
+	event_type?: string;
+	ad_unit_code?: string;
+	ad_unit_size?: string;
+	is_winner?: "0" | "1";
+	min_cpm?: string;
+	max_cpm?: string;
+	bid_currency?: string;
+	device_type?: string;
+	browser?: string;
+	os?: string;
+	geo_country?: string;
+	geo_city?: string;
+	campaign_id?: string;
+	creative_id?: string;
+
 	limit?: string;
+	offset?: string;
+	order_by?: string;
+	order_dir?: "asc" | "desc";
+	view?: "raw" | "summary";
 }
 
-//Prebid Event Types (for frontend tracker)
 export type PrebidEventType =
 	| "auctionInit"
 	| "bidRequested"

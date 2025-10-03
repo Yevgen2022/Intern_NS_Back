@@ -58,12 +58,10 @@ function startFlushTimer(fastify: FastifyInstance) {
 
 async function flushEvents(fastify: FastifyInstance): Promise<void> {
 	const state = ensureState(fastify);
-
 	if (state.isFlushing) {
 		fastify.log.warn("Analytics Flush: Already in progress - skipping");
 		return;
 	}
-
 	if (state.eventQueue.length === 0) {
 		fastify.log.debug("Analytics Flush: Queue empty - skipping");
 		return;
@@ -84,7 +82,6 @@ async function flushEvents(fastify: FastifyInstance): Promise<void> {
 		await analyticsRepository.insertEvents(fastify, eventsToFlush);
 		const duration = Date.now() - startTime;
 		state.totalProcessed += eventsToFlush.length;
-
 		fastify.log.info(
 			`Analytics Flush #${state.flushCount}: SUCCESS - ${eventsToFlush.length} events written (${duration}ms, total: ${state.totalProcessed})`,
 		);
@@ -109,11 +106,10 @@ export const analyticsService = {
 		event: AuctionEvent,
 	): Promise<void> => {
 		const state = ensureState(fastify);
-		const queueBefore = state.eventQueue.length;
+		const before = state.eventQueue.length;
 		state.eventQueue.push(event);
-
 		fastify.log.info(
-			`Analytics Queue: Event added (${queueBefore} → ${state.eventQueue.length}/${BATCH_SIZE}, id: ${event.event_id})`,
+			`Analytics Queue: Event added (${before} → ${state.eventQueue.length}/${BATCH_SIZE}, id: ${event.event_id})`,
 		);
 
 		if (state.eventQueue.length >= BATCH_SIZE) {
@@ -147,12 +143,10 @@ export const analyticsService = {
 		fastify.log.info(
 			`Analytics Shutdown: Starting (queue: ${state.eventQueue.length}, total processed: ${state.totalProcessed})`,
 		);
-
 		if (state.flushTimer) {
 			clearInterval(state.flushTimer);
 			fastify.log.info("Analytics Shutdown: Timer cleared");
 		}
-
 		await flushEvents(fastify);
 		fastify.log.info(
 			`Analytics Shutdown: Complete (${state.flushCount} total flushes)`,

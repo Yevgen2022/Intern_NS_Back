@@ -1,43 +1,8 @@
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// only body of request 200
-export const getSummaryResponseSchema = {
-	type: "object",
-	required: ["success", "data"],
-	additionalProperties: false,
-	properties: {
-		success: { type: "boolean" },
-		data: {
-			type: "array",
-			items: {
-				type: "object",
-				required: [
-					"bidder",
-					"total_bids",
-					"wins",
-					"avg_cpm",
-					"min_cpm",
-					"max_cpm",
-				],
-				additionalProperties: false,
-				properties: {
-					bidder: { type: "string" },
-					total_bids: { type: "integer" },
-					wins: { type: "integer" },
-					avg_cpm: { type: "number" },
-					min_cpm: { type: "number" },
-					max_cpm: { type: "number" },
-				},
-			},
-		},
-	},
-} as const;
-
-// general schema of mistake Fastify httpErrors.*
+//general error patterns
 export const errorSchema = {
 	type: "object",
 	required: ["statusCode", "error", "message"],
-	additionalProperties: true, //true, because Fastify sometimes adds other fields
+	additionalProperties: true,
 	properties: {
 		statusCode: { type: "number" },
 		error: { type: "string" },
@@ -45,35 +10,7 @@ export const errorSchema = {
 	},
 } as const;
 
-// full schema of route
-export const getSummarySchema = {
-	tags: ["analytics"],
-	summary: "Get aggregated statistics",
-	description:
-		"Returns aggregated stats by bidder: total bids, wins, avg CPM, min CPM, max CPM.",
-	querystring: {
-		type: "object",
-		additionalProperties: false,
-		properties: {
-			startDate: { type: "string", format: "date-time" },
-			endDate: { type: "string", format: "date-time" },
-			bidder: { type: "string" },
-		},
-		// examples: {
-		//     startDate: "2025-10-01T00:00:00Z",
-		//     endDate: "2025-10-02T00:00:00Z",
-		//     bidder: "Adtelligent",
-		// },
-	},
-	response: {
-		200: getSummaryResponseSchema,
-		400: errorSchema,
-		401: errorSchema,
-		502: errorSchema,
-		500: errorSchema,
-	},
-} as const;
-
+//description of one raw event
 export const eventItemSchema = {
 	type: "object",
 	additionalProperties: true,
@@ -86,7 +23,6 @@ export const eventItemSchema = {
 		"event_type",
 	],
 	properties: {
-		// Required fields
 		timestamp: { type: "string" },
 		bidder: { type: "string" },
 		bid_cpm: { type: "number" },
@@ -95,32 +31,38 @@ export const eventItemSchema = {
 		event_type: { type: "string" },
 		ad_unit_code: { type: "string" },
 
-		//Optional basic fields
-		min_cpm: { type: "number" },
-		max_cpm: { type: "number" },
+		// optional
 		bid_currency: { type: "string" },
-
-		// New fields for Prebid tracker
 		page_url: { type: "string" },
 		user_agent: { type: "string" },
 		creative_id: { type: "string" },
 		ad_unit_size: { type: "string" },
-
-		// Geo data
 		geo_country: { type: "string" },
 		geo_city: { type: "string" },
-
-		// Device/Browser data
 		device_type: { type: "string" },
 		browser: { type: "string" },
 		os: { type: "string" },
-
-		// Additional metrics
 		campaign_id: { type: "string" },
 		render_time: { type: "number" },
 	},
 } as const;
 
+//summary-row (for view=summary)
+export const summaryItemSchema = {
+	type: "object",
+	additionalProperties: false,
+	required: ["bidder", "total_bids", "wins", "avg_cpm", "min_cpm", "max_cpm"],
+	properties: {
+		bidder: { type: "string" },
+		total_bids: { type: "string" }, // CH повертає string для count()
+		wins: { type: "string" }, // і для sum()
+		avg_cpm: { type: "number" },
+		min_cpm: { type: "number" },
+		max_cpm: { type: "number" },
+	},
+} as const;
+
+//GET /events response (raw or summary)
 export const getEventsResponseSchema = {
 	type: "object",
 	required: ["success", "data"],
@@ -128,39 +70,57 @@ export const getEventsResponseSchema = {
 	properties: {
 		success: { type: "boolean" },
 		data: {
-			type: "array",
-			items: eventItemSchema,
+			oneOf: [
+				{ type: "array", items: eventItemSchema }, // view=raw
+				{ type: "array", items: summaryItemSchema }, // view=summary
+			],
 		},
+		count: { type: "integer" },
+		limit: { type: "integer" },
+		offset: { type: "integer" },
 	},
 } as const;
 
+//one schema for GET /events
 export const getEventsSchema = {
 	tags: ["analytics"],
-	summary: "Get auction events",
+	summary: "Get auction events (raw or summary)",
 	description:
-		"Retrieves auction events with optional filters: startDate, endDate, bidder, limit.",
+		"Retrieves auction events with filters. Use view=raw (default) or view=summary for aggregation by bidder.",
 	querystring: {
 		type: "object",
 		additionalProperties: false,
 		properties: {
-			startDate: { type: "string", format: "date-time" },
-			endDate: { type: "string", format: "date-time" },
+			// basic
+			startDate: { type: "string" }, // формат дати довільний (parseDateTimeBestEffort)
+			endDate: { type: "string" },
 			bidder: { type: "string", minLength: 1, maxLength: 255 },
+
+			// other filters (all optional)
+			event_type: { type: "string" },
+			ad_unit_code: { type: "string" },
+			ad_unit_size: { type: "string" },
+			is_winner: { type: "string", enum: ["0", "1"] },
+			min_cpm: { type: "string" },
+			max_cpm: { type: "string" },
+			bid_currency: { type: "string" },
+			device_type: { type: "string" },
+			browser: { type: "string" },
+			os: { type: "string" },
+			geo_country: { type: "string" },
+			geo_city: { type: "string" },
+			campaign_id: { type: "string" },
+			creative_id: { type: "string" },
+
+			// pagination/sorting
 			limit: { type: "integer", minimum: 1, maximum: 1000, default: 100 },
+			offset: { type: "integer", minimum: 0, default: 0 },
+			order_by: { type: "string", default: "timestamp" },
+			order_dir: { type: "string", enum: ["asc", "desc"], default: "desc" },
+
+			// regime
+			view: { type: "string", enum: ["raw", "summary"], default: "raw" },
 		},
-		examples: [
-			{
-				succes: true,
-				data: [
-					{
-						startDate: "2025-10-01T00:00:00Z",
-						endDate: "2025-10-02T00:00:00Z",
-						bidder: "Adtelligent",
-						limit: 100,
-					},
-				],
-			},
-		],
 	},
 	response: {
 		200: getEventsResponseSchema,

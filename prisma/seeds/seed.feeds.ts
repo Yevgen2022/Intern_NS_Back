@@ -11,7 +11,7 @@ type SeedFeed = {
 // World news feeds
 const WORLD: SeedFeed[] = [
     { title: 'BBC News', sourceUrl: 'https://feeds.bbci.co.uk/news/rss.xml', category: 'world' },
-    { title: 'CNN World', sourceUrl: 'https://rss.cnn.com/rss/edition_world.rss', category: 'world' },
+    // { title: 'CNN World', sourceUrl: 'https://rss.cnn.com/rss/edition_world.rss', category: 'world' },
     { title: 'Reuters Top News', sourceUrl: 'https://feeds.reuters.com/reuters/topNews', category: 'world' },
     { title: 'The Guardian World', sourceUrl: 'https://www.theguardian.com/world/rss', category: 'world' },
     { title: 'New York Times Home', sourceUrl: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', category: 'world' },
@@ -69,6 +69,7 @@ async function main() {
         imageUrl: null as string | null,
         isActive: true,
         items: [], // Empty array for Json field according to model
+        meta:{},
     }));
 
     // Insert all feeds into database

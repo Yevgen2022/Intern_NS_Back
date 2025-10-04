@@ -1,39 +1,39 @@
 import {
-    AD_TYPES,
-    CREATIVE_ACCEPT,
-    FREQ_INTERVALS,
-    GEO_OPTIONS,
-    SIZE_OPTIONS,
+	AD_TYPES,
+	CREATIVE_ACCEPT,
+	FREQ_INTERVALS,
+	GEO_OPTIONS,
+	SIZE_OPTIONS,
 } from "../constants/lineItem.constants";
 
 const escapeHtml = (s: string) =>
-    s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+	s
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
 
 export function buildFormHtml(): string {
-    const sizeOptions = SIZE_OPTIONS.map(
-        (o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`
-    ).join("");
+	const sizeOptions = SIZE_OPTIONS.map(
+		(o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`,
+	).join("");
 
-    const geoOptions = GEO_OPTIONS.map(
-        (o) => `<option value="${o.code}">${escapeHtml(o.label)}</option>`
-    ).join("");
+	const geoOptions = GEO_OPTIONS.map(
+		(o) => `<option value="${o.code}">${escapeHtml(o.label)}</option>`,
+	).join("");
 
-    const adTypeOptions = AD_TYPES.map(
-        (o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`
-    ).join("");
+	const adTypeOptions = AD_TYPES.map(
+		(o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`,
+	).join("");
 
-    const intervalOptions = FREQ_INTERVALS.map(
-        (o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`
-    ).join("");
+	const intervalOptions = FREQ_INTERVALS.map(
+		(o) => `<option value="${o.id}">${escapeHtml(o.label)}</option>`,
+	).join("");
 
-    const acceptAttr = CREATIVE_ACCEPT.join(",");
+	const acceptAttr = CREATIVE_ACCEPT.join(",");
 
-    return `
+	return `
 <div id="creative-root" class="li-form">
   <form action="/api/adserver/lineitem/save" method="POST" enctype="multipart/form-data" novalidate>
     <fieldset class="li-fieldset">

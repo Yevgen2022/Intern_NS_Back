@@ -24,6 +24,7 @@ export type CreateLineItemData = {
 	geo: string[];
 	adType: AdType;
 	frequency: number;
+	interval: string;
 	status: Status;
 	creativeId: string;
 };
@@ -40,8 +41,8 @@ export type BodyWithFile = {
 	geo: { value: string };
 	adType: { value: string };
 	frequency: { value: string };
-    interval: { value: string };
-  	creative: MultipartFile;
+	interval: { value: string };
+	creative: MultipartFile;
 };
 
 type SavedFileInfo = {
@@ -94,9 +95,7 @@ export async function createLineItemWithCreative(
 	const adTypeValue = String(body.adType?.value || "banner");
 
 	const frequency = Number(body.frequency?.value || 1);
-    const interval = body.interval?.value || "hour";
-
-
+	const interval = body.interval?.value || "hour";
 
 	const creative = body.creative;
 	if (!creative) {
@@ -135,7 +134,7 @@ export async function createLineItemWithCreative(
 		geo,
 		adType: adTypeValue as AdType,
 		frequency,
-        // interval,
+		interval,
 		status: "active" as Status,
 		creativeId: creativeRecord.id,
 	});

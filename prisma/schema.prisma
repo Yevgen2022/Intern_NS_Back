@@ -71,6 +71,7 @@ model LineItem {
   geo         String[]
   adType      AdType   @default(banner)  // Changed from String on AdType
   frequency   Int      @default(1)
+  interval    String   @default("hour")
   status      Status   @default(active)  // Changed from String on Status
   creativeId  String   @db.ObjectId
   creative    Creative @relation(fields: [creativeId], references: [id])

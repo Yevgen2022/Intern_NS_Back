@@ -12,22 +12,19 @@ import type { RssFeed, RssItem } from "../types/parser.types";
 //one parser instance (generics → parseURL returns RssFeed)
 // const parser: Parser<RssFeed, RssItem> = new Parser();
 const parser: Parser<RssFeed, RssItem> = new Parser({
-    requestOptions: {
-        headers: {
-            'User-Agent': process.env.FEED_UA ?? 'Mozilla/5.0 (compatible; InternNSBot/1.0; +https://example.com)',
-            'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8',
-        },
-        // типи rss-parser це не завжди мають, тому можна підказати TS:
-        // @ts-expect-error: redirect option is accepted by the underlying client
-        redirect: 'follow',
-        timeout: 10000,
-    },
+	requestOptions: {
+		headers: {
+			"User-Agent":
+				process.env.FEED_UA ??
+				"Mozilla/5.0 (compatible; InternNSBot/1.0; +https://example.com)",
+			Accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
+		},
+		// типи rss-parser це не завжди мають, тому можна підказати TS:
+		// @ts-expect-error: redirect option is accepted by the underlying client
+		redirect: "follow",
+		timeout: 10000,
+	},
 });
-
-
-
-
-
 
 //  undefined → null
 const toNull = (v?: string): string | null => v ?? null;

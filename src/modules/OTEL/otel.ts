@@ -1,163 +1,107 @@
-// import {diag, DiagLogLevel, DiagConsoleLogger} from "@opentelemetry/api";
-// import {NodeSDK} from "@opentelemetry/sdk-node";
-// import {ConsoleSpanExporter} from "@opentelemetry/sdk-trace-node";
-// import {ConsoleMetricExporter} from "@opentelemetry/sdk-metrics";
-// import {ConsoleLogRecordExporter, SimpleLogRecordProcessor} from "@opentelemetry/sdk-logs";
-// import {FastifyOtelInstrumentation} from "@fastify/otel";
-// import {FsInstrumentation} from "@opentelemetry/instrumentation-fs";
-// import {MongoDBInstrumentation} from "@opentelemetry/instrumentation-mongodb";
-//
-//
-// export async function initOpenTelemetry() {
-//     diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO)
-//     const sdk = new NodeSDK({
-//         traceExporter: new ConsoleSpanExporter(),
-//         metricExporter: new ConsoleMetricExporter(),
-//         logRecordProcessors: [
-//             new SimpleLogRecordProcessor(
-//                 new ConsoleLogRecordExporter()
-//             ),
-//         ],
-//         instrumentations: [
-//             new FastifyOtelInstrumentation({
-//                 serviceName: 'fastify-form-app',
-//                 registerOnInitialization: true,
-//                 ignoreRoutes: (opts) => {
-//                     return opts.url.includes("/health");
-//                 },
-//             }),
-//             new FsInstrumentation(),
-//             new MongoDBInstrumentation({enhancedDatabaseReporting: true}),
-//         ],
-//         "service.name": 'fastify-form-app',
-//         "service.version": "1.0.0",
-//         "service.environment": "development",
-//         "service.instance.id": "instance-1"
-//     })
-//
-//     try {
-//          sdk.start();
-//         console.log("Starting connection...");
-//     } catch (err) {
-//         console.error("Failed to start connection...:,");
-//     }
-//     return sdk;
-// }
-
-
-
-// Імпортуємо утиліти для внутрішнього логування самого OpenTelemetry (diag)
-import { diag, DiagConsoleLogger, DiagLogLevel } from "@opentelemetry/api";
-
-// Імпортуємо зручний комбінований SDK для Node.js (керує трейсами/метриками/логами)
-import { NodeSDK } from "@opentelemetry/sdk-node";
-
-// Експортер трейсів, який виводить спани у консоль (stdout)
-import { ConsoleSpanExporter } from "@opentelemetry/sdk-trace-node";
-
-// Імпортуємо консольний експортер метрик та рідер, що періодично їх відправляє
-import { ConsoleMetricExporter, PeriodicExportingMetricReader} from "@opentelemetry/sdk-metrics";
-
-// Імпортуємо консольний експортер логів та простий процесор логів
-import { ConsoleLogRecordExporter, SimpleLogRecordProcessor} from "@opentelemetry/sdk-logs";
-
-// Авто-інструментація файлової системи (fs.* операції потрапляють у трейси/метрики)
+// Import utilities for OpenTelemetry internal diagnostics logging (diag)
+import { DiagConsoleLogger, DiagLogLevel, diag } from "@opentelemetry/api";
+// Auto-instrumentation for the file system (fs.* operations show up in traces/metrics)
 import { FsInstrumentation } from "@opentelemetry/instrumentation-fs";
-
-// Авто-інструментація драйвера MongoDB (запити до БД потрапляють у трейси/метрики)
+import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
+// Auto-instrumentation for the MongoDB driver (DB operations show up in traces/metrics)
 import { MongoDBInstrumentation } from "@opentelemetry/instrumentation-mongodb";
-
-// Тип FastifyInstance — щоб типізувати реєстрацію хука вимкнення SDK
+import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
+// Import console log exporter and a simple log processor
+import {
+	ConsoleLogRecordExporter,
+	SimpleLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
+// Import console metric exporter and the reader that periodically exports them
+import {
+	ConsoleMetricExporter,
+	PeriodicExportingMetricReader,
+} from "@opentelemetry/sdk-metrics";
+// Import the convenient all-in-one Node.js SDK (manages traces/metrics/logs)
+import { NodeSDK } from "@opentelemetry/sdk-node";
+// Trace exporter that prints spans to the console (stdout)
+import { ConsoleSpanExporter } from "@opentelemetry/sdk-trace-node";
+// FastifyInstance type — used to type the SDK shutdown hook registration
 import type { FastifyInstance } from "fastify";
+import { logError, logInfo } from "./logger";
 
-import { logInfo, logError } from "./logger";
+type TraceContextFields = {
+	trace_id?: string;
+	span_id?: string;
+	trace_flags?: string;
+};
 
-
-// Експортуємо функцію ініціалізації OpenTelemetry; повертаємо інстанс NodeSDK
+// Export the OpenTelemetry initialization function; return a NodeSDK instance
 export async function initOpenTelemetry(): Promise<NodeSDK> {
+	// Enable OTEL internal diagnostic logs at INFO level (they will appear in the console)
+	diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
-    // Вмикаємо внутрішні діагностичні логи OTEL на рівні INFO (будуть у консолі)
-    diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+	// Create the SDK instance with the required configuration
+	const sdk = new NodeSDK({
+		// Export traces to the console
+		traceExporter: new ConsoleSpanExporter(),
 
-    // Створюємо екземпляр SDK із потрібною конфігурацією
-    const sdk = new NodeSDK({
+		// Export metrics to the console every 5 seconds
+		...(process.env.ENABLE_METRICS === "true" && {
+			metricReader: new PeriodicExportingMetricReader({
+				exporter: new ConsoleMetricExporter(),
+				exportIntervalMillis: 5000,
+			}),
+		}),
 
+		// Array of log processors
+		logRecordProcessors: [
+			//sends log records to the console
+			new SimpleLogRecordProcessor(new ConsoleLogRecordExporter()),
+		],
+		// The SDK automatically creates and registers a global LoggerProvider.
 
-        // Трейси експортуємо у консоль (для простого дебагу)
-        traceExporter: new ConsoleSpanExporter(),
+		instrumentations: [
+			new HttpInstrumentation(),
+			new FsInstrumentation(),
+			new MongoDBInstrumentation({
+				enhancedDatabaseReporting: true,
+			}),
+			new PinoInstrumentation({
+				// trace context for Pino logs
+				logHook: (
+					span,
+					record: Record<string, unknown> & TraceContextFields,
+				) => {
+					if (!span) return;
 
+					const ctx = span.spanContext();
+					record.trace_id = ctx.traceId;
+					record.span_id = ctx.spanId;
+					record.trace_flags = ctx.traceFlags.toString(16).padStart(2, "0");
+				},
+			}),
+		],
+	});
 
-        // Метрики експортуються у консоль кожні 5 секунд через періодичний рідер
-        metricReader: new PeriodicExportingMetricReader({
-            // Власне експортер метрик — консоль
-            exporter: new ConsoleMetricExporter(),
-            // Інтервал експорту (мс)
-            exportIntervalMillis: 5000,
-        }),
+	try {
+		await sdk.start();
+		console.log("OpenTelemetry initialized successfully");
 
-
-        // Масив процесорів логів (у цій версії SDK — множина)
-        logRecordProcessors: [
-            // Простий процесор, що надсилає лог-записи у консоль
-            new SimpleLogRecordProcessor(new ConsoleLogRecordExporter())
-        ],
-       // SDK автоматично створив і зареєстрував глобальний LoggerProvider.
-
-
-        // Підключаємо авто-інструментації (мінімально: FS та MongoDB)
-        instrumentations: [
-
-            // Інструментація файлової системи (читання/запис файлів)
-            new FsInstrumentation(),
-
-            // Інструментація MongoDB; ввімкнено детальніший репортинг
-            new MongoDBInstrumentation({
-                enhancedDatabaseReporting: true
-            }),
-        ],
-
-        // Примітка: атрибути ресурсу (service.name тощо) можна додати через поле `resource`
-        // за допомогою resourceFromAttributes(...) — опущено тут для простоти.
-    });
-
-
-    try {
-        // Стартуємо SDK (реєструє провайдери та вмикає інструментації)
-        await sdk.start();
-        // Лог про успішну ініціалізацію
-        console.log("OpenTelemetry initialized successfully");
-
-// Додаємо structured log через OpenTelemetry
-        logInfo('OpenTelemetry SDK started', {
-            'service.name': 'fastify-form-app',
-            'sdk.version': '0.203.0',
-        });
-
-
-
-    } catch (err) {
-        // Якщо щось пішло не так при старті — покажемо помилку
-        console.error("OpenTelemetry init failed:", err);
-
-        // Логуємо помилку через OpenTelemetry
-        logError('OpenTelemetry SDK initialization failed', err as Error);
-    }
-
-    // Повертаємо SDK назовні (щоб пізніше коректно викликати shutdown)
-    return sdk;
+		// Adding structured log via OpenTelemetry
+		logInfo("OpenTelemetry SDK started", {
+			"service.name": "fastify-form-app",
+			"sdk.version": "0.203.0",
+		});
+	} catch (err) {
+		console.error("OpenTelemetry init failed:", err);
+		logError("OpenTelemetry SDK initialization failed", err as Error);
+	}
+	return sdk;
 }
 
-// Експортуємо утиліту, що прив’язує коректне вимкнення OTEL до життєвого циклу Fastify
 export function registerOtelShutdownHook(app: FastifyInstance, sdk: NodeSDK) {
-    // Додаємо хук onClose: виконається при зупинці Fastify
-    app.addHook("onClose", async () => {
-        // Коректно зупиняємо SDK (злив буферів, закриття експортерів)
-        await sdk
-            .shutdown()
-            // Якщо при зупинці сталася помилка — логнемо її через логер Fastify
-            .catch((err) => app.log.error("OTEL shutdown failed:", err));
-
-        // Лог про успішну зупинку SDK
-        app.log.info("OTEL SDK stopped");
-    });
+	// will be executed when Fastify stops
+	app.addHook("onClose", async () => {
+		await sdk
+			.shutdown()
+			// If an error occurs during the stop, log it using the Fastify logger.
+			.catch((err) => app.log.error("OTEL shutdown failed:", err));
+		// Log about successful SDK stop
+		app.log.info("OTEL SDK stopped");
+	});
 }

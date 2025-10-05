@@ -1,6 +1,4 @@
-
-
-import 'dotenv/config';
+import "dotenv/config";
 import buildApp from "./app";
 
 async function start() {
@@ -10,8 +8,6 @@ async function start() {
 
 	const port = Number(process.env.PORT ?? 3500);
 	const host = process.env.HOST ?? "0.0.0.0";
-
-
 
 	////////////////////////////////////
 
@@ -27,8 +23,6 @@ async function start() {
 	// console.log(fastify.printRoutes());
 
 	////////////////////////////////////
-
-
 
 	fastify.listen({ port, host }, (err, address) => {
 		if (err) {

@@ -1,73 +1,69 @@
-import { logs } from "@opentelemetry/api-logs";
-import { trace, context } from "@opentelemetry/api";
+import { context } from "@opentelemetry/api";
+import { type AnyValueMap, type Logger, logs } from "@opentelemetry/api-logs";
 
-/**
- * Отримати OpenTelemetry Logger для structured logging
- *
- * Використовуйте цей logger замість console.log для того щоб логи
- * потрапляли в OpenTelemetry pipeline і експортувалися разом з трейсами/метриками
- */
-export function getOtelLogger() {
-
-    // Запитуємо глобальний LoggerProvider
-    const loggerProvider = logs.getLoggerProvider();
-
-    // Отримуємо конкретний logger для нашого сервісу
-    return loggerProvider.getLogger('fastify-form-app', '1.0.0');
+// Get the OpenTelemetry Logger for structured logging
+// Use this logger ONLY outside the HTTP context:
+// - Background jobs (cron tasks)
+// - CLI scripts
+// - Startup/shutdown logic
+// For HTTP requests use request.log or fastify.log (Pino)
+export function getOtelLogger(): Logger {
+	// You can also call logs.getLogger('fastify-form-app') directly;
+	// using the provider explicitly is also fine.
+	const provider = logs.getLoggerProvider();
+	return provider.getLogger("fastify-form-app", "1.0.0");
 }
 
-/**
- * Helper функція для швидкого логування
- */
-export function logInfo(message: string, attributes?: Record<string, any>) {
-    // Отримуємо logger від провайдера
-    const logger = getOtelLogger();
-
-    // Отримуємо поточний trace context (якщо є активний span)
-    // const activeSpan = trace.getActiveSpan();
-
-    // Створюємо лог запис
-    logger.emit({
-        severityText: 'INFO',      // рівень логу
-        severityNumber: 9,         // числове значення INFO
-        body: message,             // текст повідомлення
-        attributes: attributes,    // додаткові дані
-        context: context.active(), // прив'язка до trace
-    });
+export function logInfo(message: string, attributes?: AnyValueMap): void {
+	const logger = getOtelLogger();
+	logger.emit({
+		severityText: "INFO",
+		severityNumber: 9,
+		body: message,
+		attributes,
+		context: context.active(),
+	});
 }
 
+export function logError(
+	message: string,
+	error?: Error,
+	attributes?: AnyValueMap,
+): void {
+	const logger = getOtelLogger();
 
-export function logError(message: string, error?: Error, attributes?: Record<string, any>) {
-    const logger = getOtelLogger();
-    logger.emit({
-        severityText: 'ERROR',
-        severityNumber: 17, // ERROR = 17
-        body: message,
-        attributes: {
-            ...attributes,
-            'error.message': error?.message,
-            'error.stack': error?.stack,
-        },
-        context: context.active()  //Для трейсів
-    });
+	// Build attributes map without undefined values
+	const attrs: AnyValueMap = { ...(attributes ?? {}) };
+	if (error?.message) attrs["error.message"] = error.message;
+	if (error?.stack) attrs["error.stack"] = error.stack;
+
+	logger.emit({
+		severityText: "ERROR",
+		severityNumber: 17,
+		body: message,
+		attributes: Object.keys(attrs).length ? attrs : undefined,
+		context: context.active(),
+	});
 }
 
-export function logWarn(message: string, attributes?: Record<string, any>) {
-    const logger = getOtelLogger();
-    logger.emit({
-        severityText: 'WARN',
-        severityNumber: 13, // WARN = 13
-        body: message,
-        attributes: attributes || {},
-    });
+export function logWarn(message: string, attributes?: AnyValueMap): void {
+	const logger = getOtelLogger();
+	logger.emit({
+		severityText: "WARN",
+		severityNumber: 13,
+		body: message,
+		attributes,
+		context: context.active(),
+	});
 }
 
-export function logDebug(message: string, attributes?: Record<string, any>) {
-    const logger = getOtelLogger();
-    logger.emit({
-        severityText: 'DEBUG',
-        severityNumber: 5, // DEBUG = 5
-        body: message,
-        attributes: attributes || {},
-    });
+export function logDebug(message: string, attributes?: AnyValueMap): void {
+	const logger = getOtelLogger();
+	logger.emit({
+		severityText: "DEBUG",
+		severityNumber: 5,
+		body: message,
+		attributes,
+		context: context.active(),
+	});
 }

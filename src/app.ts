@@ -9,11 +9,52 @@ import { analyticsRoutes } from "./modules/analytics/routes/analytics.routes";
 import { parseRoutes } from "./modules/articalParser/routes/artical.parser.route";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
+import {initOpenTelemetry, registerOtelShutdownHook, logInfo, logError} from "./modules/OTEL";
 
 export type AppOptions = Partial<FastifyServerOptions>;
 
+
+
 async function buildApp(options: AppOptions = {}) {
+
+    const sdk = await initOpenTelemetry();
 	const fastify = Fastify({ logger: true }); //create server Turns on the built-in logger.
+
+
+    registerOtelShutdownHook(fastify, sdk);
+    // Додаємо hook для логування запитів
+    fastify.addHook('onRequest', async (request, reply) => {
+        logInfo('HTTP request received', {
+            'http.method': request.method,
+            'http.url': request.url,
+            'http.user_agent': request.headers['user-agent'],
+        });
+    });
+
+    fastify.addHook('onResponse', async (request, reply) => {
+        logInfo('HTTP response sent', {
+            'http.method': request.method,
+            'http.url': request.url,
+            'http.status_code': reply.statusCode,
+        });
+    });
+
+    // Логування помилок
+    fastify.setErrorHandler((error, request, reply) => {
+        logError('Request error occurred', error, {
+            'http.method': request.method,
+            'http.url': request.url,
+        });
+
+        reply.status(500).send({ error: 'Internal Server Error' });
+    });
+
+
+
+
+
+
+
 
 	await fastify.register(multipart, {
 		attachFieldsToBody: true,
@@ -44,6 +85,8 @@ async function buildApp(options: AppOptions = {}) {
 		fastify.log.error("Error in autoload:", error);
 		throw error;
 	}
+
+
 
 	fastify.register(getFeedDataRoutes);
 	fastify.register(authRoutes, { prefix: "/api" });

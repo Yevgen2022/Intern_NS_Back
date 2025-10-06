@@ -112,7 +112,7 @@ export const analyticsRepository = {
 			}
 		}
 
-		// pagination and sorting (values ​​are already normalized in the controller/service)
+		// pagination and sorting (values are already normalized in the controller/service)
 		const limit = q.limit ?? 100;
 		const offset = q.offset ?? 0;
 		const orderBy = q.order_by || "timestamp";

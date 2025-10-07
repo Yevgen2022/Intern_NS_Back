@@ -13,8 +13,14 @@ export default fp(
 	async (fastify) => {
 		fastify.log.info("ClickHouse Plugin: Loading...");
 
+
+        if (!process.env.CLICKHOUSE_URL) {
+            fastify.log.warn("ClickHouse URL not configured, skipping plugin");
+            return;
+        }
+
 		const clickhouseClient = createClient({
-			url: process.env.CLICKHOUSE_URL || "",
+            url: process.env.CLICKHOUSE_URL,
 			username: process.env.CLICKHOUSE_USER || "default",
 			password: process.env.CLICKHOUSE_PASSWORD || "",
 			database: process.env.CLICKHOUSE_DATABASE || "default",

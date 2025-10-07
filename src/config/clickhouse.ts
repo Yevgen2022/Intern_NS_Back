@@ -1,8 +1,22 @@
 import "dotenv/config";
 import { createClient } from "@clickhouse/client";
 
+
+
+
+
+console.log('=== CLICKHOUSE CONFIG ===');
+console.log('URL:', process.env.CLICKHOUSE_URL);
+console.log('USER:', process.env.CLICKHOUSE_USER);
+console.log('DB:', process.env.CLICKHOUSE_DATABASE);
+console.log('========================');
+
+
+
+
+
 const clickhouseClient = createClient({
-    url: process.env.CLICKHOUSE_URL || "",
+    host: process.env.CLICKHOUSE_URL || "",
     username: process.env.CLICKHOUSE_USER || "default",
     password: process.env.CLICKHOUSE_PASSWORD || "",
     database: process.env.CLICKHOUSE_DATABASE || "default",

@@ -1,4 +1,19 @@
 // import "dotenv/config";
+
+
+console.log('=== RAILWAY ENV CHECK ===');
+console.log('All env keys:', Object.keys(process.env).filter(k => k.includes('CLICK')));
+console.log('CLICKHOUSE_URL:', process.env.CLICKHOUSE_URL);
+console.log('CLICKHOUSE_USER:', process.env.CLICKHOUSE_USER);
+console.log('CLICKHOUSE_PASSWORD:', process.env.CLICKHOUSE_PASSWORD ? '***SET***' : 'NOT SET');
+console.log('CLICKHOUSE_DATABASE:', process.env.CLICKHOUSE_DATABASE);
+console.log('========================');
+
+
+
+
+
+
 import buildApp from "./app";
 
 async function start() {

@@ -6,8 +6,12 @@ export const schema = {
 	querystring: {
 		type: "object",
 		properties: {
-			url: { type: "string", format: "uri" }, // optionally
-			force: { type: "string", enum: ["1"] }, // optionally; "1" = force-refresh cache
+			url: {
+				type: "string",
+				format: "uri",
+				examples: ["https://tsn.ua/rss/full.rss"],
+			}, // optionally
+			force: { type: "string", enum: ["1"], examples: ["1"] }, // optionally; "1" = force-refresh cache
 		},
 		additionalProperties: false,
 	} as const,

@@ -2,10 +2,11 @@ import type { JsonSchemaToTsProvider } from "@fastify/type-provider-json-schema-
 import type { FastifyInstance } from "fastify";
 import { createAuthController } from "../controllers/auth.controllers";
 import {
-	basicOk,
+	// basicOk,
 	errorWhoamiResponse,
 	loginBody,
 	loginResponse,
+	logoutResponse,
 	registerBody,
 	registerResponse,
 	whoamiResponse,
@@ -29,7 +30,13 @@ export async function authRoutes(fastify: FastifyInstance) {
 
 	route.post(
 		"/logout",
-		{ schema: { response: { 200: basicOk } } },
+		{
+			schema: {
+				tags: ["auth"],
+				summary: "Logout current user and clear session cookie",
+				response: { 200: logoutResponse },
+			},
+		},
 		controller.logout,
 	);
 

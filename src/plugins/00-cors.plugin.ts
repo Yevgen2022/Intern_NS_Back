@@ -12,8 +12,8 @@ export default fp(async function corsPlugin(fastify: FastifyInstance) {
             "https://adtelligent-internship-git-main-yevgen2022s-projects.vercel.app", // preview (з Network-скріну)
         ],
         methods: ["GET", "POST", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-        // allowedHeaders: ["*"],
+        // allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: ["*"],
         credentials: true, // cookie-sessions
     });
 

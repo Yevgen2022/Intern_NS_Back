@@ -9,23 +9,23 @@ import { analyticsRoutes } from "./modules/analytics/routes/analytics.routes";
 import { parseRoutes } from "./modules/articalParser/routes/artical.parser.route";
 import { authRoutes } from "./modules/auth/routes/auth.routes";
 import { getFeedDataRoutes } from "./modules/feedParser/routes/feedParser.route";
-// import {
-// 	initOpenTelemetry,
-// 	registerGlobalHooks,
-// 	registerOtelShutdownHook,
-// } from "./modules/OTEL";
+import {
+	initOpenTelemetry,
+	registerGlobalHooks,
+	registerOtelShutdownHook,
+} from "./modules/OTEL";
 
 export type AppOptions = Partial<FastifyServerOptions>;
 
 async function buildApp(options: AppOptions = {}) {
-	// const sdk = await initOpenTelemetry();
+	const sdk = await initOpenTelemetry();
 
 	const fastify = Fastify({
 		logger: true, //create server Turns on the built-in logger.
         pluginTimeout: 30000,
 	});
 
-	// registerOtelShutdownHook(fastify, sdk);
+	registerOtelShutdownHook(fastify, sdk);
 
 	await fastify.register(multipart, {
 		attachFieldsToBody: true,
@@ -57,7 +57,7 @@ async function buildApp(options: AppOptions = {}) {
 		throw error;
 	}
 
-	// registerGlobalHooks(fastify);
+	registerGlobalHooks(fastify);
 
 	fastify.register(getFeedDataRoutes);
 	fastify.register(authRoutes, { prefix: "/api" });

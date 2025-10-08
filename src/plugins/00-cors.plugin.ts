@@ -13,7 +13,7 @@ export default fp(async function corsPlugin(fastify: FastifyInstance) {
         ],
         methods: ["GET", "POST", "OPTIONS"],
         // allowedHeaders: ["Content-Type", "Authorization"],
-        allowedHeaders: ["*"],
+        // allowedHeaders: ["*"],
         credentials: true, // cookie-sessions
     });
 

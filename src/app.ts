@@ -22,6 +22,7 @@ async function buildApp(options: AppOptions = {}) {
 
 	const fastify = Fastify({
 		logger: true, //create server Turns on the built-in logger.
+        pluginTimeout: 30000,
 	});
 
 	// registerOtelShutdownHook(fastify, sdk);

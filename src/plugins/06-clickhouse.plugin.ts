@@ -47,7 +47,7 @@
 // );
 
 
-// plugins/clickhouse.ts
+
 // plugins/clickhouse.ts
 import { type ClickHouseClient, createClient } from "@clickhouse/client";
 import fp from "fastify-plugin";
@@ -64,7 +64,7 @@ export default fp(
     async (fastify) => {
         fastify.log.info("ClickHouse Plugin: Loading...");
 
-        // ⬇️ ОТУТ ставимо фолбек на Railway-змінну
+        // ОТУТ ставимо фолбек на Railway-змінну
         const rawBase =
             (process.env.CLICKHOUSE_URL ||
                 process.env.RAILWAY_SERVICE_CLICKHOUSE_URL ||
@@ -90,7 +90,7 @@ export default fp(
             return;
         }
 
-        // ✅ Щоб не було варну "database is overridden",
+        // Щоб не було варну "database is overridden",
         // НЕ додаємо /default у URL, а передаємо database окремо.
         const finalUrl = base.origin;
         fastify.log.info(

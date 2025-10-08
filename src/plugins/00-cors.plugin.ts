@@ -5,7 +5,10 @@ import fp from "fastify-plugin";
 // fastify-plugin provides correct typing and allows autoload to work without problems
 export default fp(async function corsPlugin(fastify: FastifyInstance) {
 	await fastify.register(cors, {
-		origin: "http://localhost:5173", // front in dev
+        origin: [
+            "http://localhost:5173", // front in dev
+            "https://adtelligent-internship.vercel.app", // front on Vercel
+        ],
 		methods: ["GET", "POST", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization"],
 		credentials: true, // cookie-sessions

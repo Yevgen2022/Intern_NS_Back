@@ -20,14 +20,37 @@ export function createAuthRepo(fastify: FastifyInstance) {
 			return db.user.create({ data: { email, passwordHash, name } });
 		},
 
-		// Sessions (single-login)
-		async createSession(userId: string, token: string, expiresAt: Date) {
-			return db.session.upsert({
-				where: { userId }, // <= унікальне поле у схемі
-				update: { token, expiresAt, createdAt: new Date() },
-				create: { userId, token, expiresAt },
-			});
-		},
+		// // Sessions (single-login)
+		// async createSession(userId: string, token: string, expiresAt: Date) {
+		// 	return db.session.upsert({
+		// 		where: { userId }, // <= unique field in the schema
+		// 		update: { token, expiresAt, createdAt: new Date() },
+		// 		create: { userId, token, expiresAt },
+		// 	});
+		// },
+
+        // Sessions (single-login)
+        async createSession(userId: string, token: string, expiresAt: Date) {
+            // Check if a session exists for this user
+            const existingSession = await db.session.findUnique({
+                where: { userId },
+            });
+
+            if (existingSession) {
+                // If it exists, update it.
+                return db.session.update({
+                    where: { userId },
+                    data: { token, expiresAt, createdAt: new Date() },
+                });
+            } else {
+                // If it doesn't exist, create it.
+                return db.session.create({
+                    data: { userId, token, expiresAt },
+                });
+            }
+        },
+
+
 
 		findSessionByToken(token: string) {
 			return db.session.findUnique({ where: { token } });

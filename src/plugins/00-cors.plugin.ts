@@ -8,6 +8,7 @@ export default fp(async function corsPlugin(fastify: FastifyInstance) {
         origin: [
             "http://localhost:5173", // front in dev
             "https://adtelligent-internship.vercel.app", // front on Vercel
+            "https://adtelligent-internship-git-main-yevgen2022s-projects.vercel.app", // preview (з Network-скріну)
         ],
 		methods: ["GET", "POST", "OPTIONS"],
 		allowedHeaders: ["Content-Type", "Authorization"],
